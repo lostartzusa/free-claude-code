@@ -67,6 +67,23 @@ class Graph:
         return g
 
     @classmethod
+    def grid_3d(cls, sx: int, sy: int, sz: int) -> Self:
+        """3-D rectangular lattice with 6-connectivity."""
+        n = sx * sy * sz
+        g = cls(num_nodes=n)
+        for x in range(sx):
+            for y in range(sy):
+                for z in range(sz):
+                    node = x * sy * sz + y * sz + z
+                    if x + 1 < sx:
+                        g.add_edge(node, node + sy * sz)
+                    if y + 1 < sy:
+                        g.add_edge(node, node + sz)
+                    if z + 1 < sz:
+                        g.add_edge(node, node + 1)
+        return g
+
+    @classmethod
     def complete(cls, n: int) -> Self:
         """Fully connected graph on *n* nodes."""
         g = cls(num_nodes=n)

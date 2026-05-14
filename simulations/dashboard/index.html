@@ -35,6 +35,17 @@
     color: var(--dim);
     margin-top: 6px;
   }
+  .header .nav-link {
+    font-size: 0.85em;
+    color: var(--accent);
+    text-decoration: none;
+    border: 1px solid var(--accent);
+    padding: 4px 14px;
+    border-radius: 4px;
+    margin-top: 8px;
+    display: inline-block;
+  }
+  .header .nav-link:hover { background: var(--accent); color: var(--bg); }
   .layout {
     display: grid;
     grid-template-columns: 280px 1fr 280px;
@@ -171,6 +182,7 @@
 <div class="header">
   <h1>LIGHTSPEED PROPAGATION</h1>
   <div class="formula">B(i,t+1) = (2/pi) [ B(i,t) + alpha * Sum B(j,t) ]</div>
+  <a class="nav-link" href="index3d.html">3D View</a>
 </div>
 
 <div class="layout">

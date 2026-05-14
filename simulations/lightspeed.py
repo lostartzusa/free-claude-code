@@ -117,6 +117,10 @@ def lightspeed_report(
         side = int(math.sqrt(num_nodes))
         graph = Graph.grid_2d(side, side)
         num_nodes = side * side
+    elif topology == "grid3d":
+        side = round(num_nodes ** (1.0 / 3))
+        graph = Graph.grid_3d(side, side, side)
+        num_nodes = side * side * side
     elif topology == "complete":
         graph = Graph.complete(num_nodes)
     else:

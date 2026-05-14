@@ -19,7 +19,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--topology",
-        choices=["chain", "ring", "grid", "complete"],
+        choices=["chain", "ring", "grid", "grid3d", "complete"],
         default="chain",
         help="network topology (default: chain)",
     )

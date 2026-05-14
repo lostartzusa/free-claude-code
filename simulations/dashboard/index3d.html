@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lightspeed Propagation - 3D</title>
+<style>
+  :root {
+    --bg: #0a0a1a;
+    --panel: #12122a;
+    --border: #2a2a4a;
+    --text: #e0e0f0;
+    --dim: #8888aa;
+    --accent: #00ccff;
+    --warn: #ff6644;
+    --ok: #44ff88;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Courier New', monospace;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+  }
+  .header {
+    text-align: center;
+    padding: 10px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, #0f0f2a 0%, var(--bg) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+  }
+  .header h1 { font-size: 1.2em; color: var(--accent); letter-spacing: 2px; }
+  .header .formula { font-size: 0.85em; color: var(--dim); }
+  .header .nav-link {
+    font-size: 0.8em;
+    color: var(--accent);
+    text-decoration: none;
+    border: 1px solid var(--accent);
+    padding: 4px 12px;
+    border-radius: 4px;
+  }
+  .header .nav-link:hover { background: var(--accent); color: var(--bg); }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr 260px;
+    height: calc(100vh - 50px);
+  }
+  .sidebar {
+    padding: 12px;
+    border-right: 1px solid var(--border);
+    background: var(--panel);
+    overflow-y: auto;
+  }
+  .sidebar-right {
+    padding: 12px;
+    border-left: 1px solid var(--border);
+    background: var(--panel);
+    overflow-y: auto;
+  }
+  .main { position: relative; overflow: hidden; }
+  #canvas3d { display: block; width: 100%; height: 100%; }
+  .section-title {
+    font-size: 0.7em;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .control-group { margin-bottom: 12px; }
+  .control-group label {
+    display: block;
+    font-size: 0.75em;
+    color: var(--dim);
+    margin-bottom: 3px;
+  }
+  .control-group .value {
+    float: right;
+    color: var(--accent);
+    font-weight: bold;
+  }
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+    background: transparent;
+    cursor: pointer;
+  }
+  select, button {
+    width: 100%;
+    padding: 6px 8px;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 0.8em;
+    cursor: pointer;
+  }
+  select:hover, button:hover { border-color: var(--accent); }
+  button.primary {
+    background: var(--accent);
+    color: var(--bg);
+    font-weight: bold;
+    border: none;
+  }
+  button.primary:hover { opacity: 0.85; }
+  .btn-row { display: flex; gap: 4px; margin-top: 6px; }
+  .btn-row button { flex: 1; }
+  .metric-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+  }
+  .metric-card .label {
+    font-size: 0.65em;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .metric-card .val {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin-top: 1px;
+  }
+  .metric-card .val.super { color: var(--ok); }
+  .metric-card .val.sub { color: var(--warn); }
+  .metric-card .val.neutral { color: var(--accent); }
+  .overlay-info {
+    position: absolute;
+    bottom: 10px;
+    right: 14px;
+    font-size: 0.85em;
+    color: var(--accent);
+    pointer-events: none;
+  }
+  .overlay-hint {
+    position: absolute;
+    bottom: 10px;
+    left: 14px;
+    font-size: 0.7em;
+    color: var(--dim);
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>LIGHTSPEED 3D</h1>
+  <div class="formula">B(i,t+1) = (2/pi) [ B(i,t) + alpha * Sum B(j,t) ]</div>
+  <a class="nav-link" href="index.html">2D View</a>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="section-title">Simulation</div>
+
+    <div class="control-group">
+      <label>Alpha <span class="value" id="alpha-val">0.40</span></label>
+      <input type="range" id="alpha" min="0" max="1.5" step="0.01" value="0.40">
+    </div>
+
+    <div class="control-group">
+      <label>Cube Side <span class="value" id="side-val">10</span></label>
+      <input type="range" id="side" min="3" max="20" step="1" value="10">
+    </div>
+
+    <div class="control-group">
+      <label>Speed <span class="value" id="speed-val">8</span> steps/s</label>
+      <input type="range" id="speed" min="1" max="30" step="1" value="8">
+    </div>
+
+    <div class="btn-row">
+      <button class="primary" id="btn-play">Play</button>
+      <button id="btn-step">Step</button>
+      <button id="btn-reset">Reset</button>
+    </div>
+
+    <div style="margin-top: 14px;">
+      <div class="section-title">3D Controls</div>
+
+      <div class="control-group">
+        <label>Visibility Threshold <span class="value" id="thresh-val">0.001</span></label>
+        <input type="range" id="threshold" min="0" max="0.5" step="0.001" value="0.001">
+      </div>
+
+      <div class="control-group">
+        <label>Node Size <span class="value" id="size-val">1.0</span></label>
+        <input type="range" id="nodesize" min="0.2" max="2.0" step="0.1" value="1.0">
+      </div>
+
+      <div class="control-group">
+        <label>Slice Plane (Z) <span class="value" id="slice-val">all</span></label>
+        <input type="range" id="slice" min="-1" max="20" step="1" value="-1">
+      </div>
+
+      <div class="btn-row">
+        <button id="btn-cam-reset">Reset Camera</button>
+      </div>
+
+      <div class="control-group" style="margin-top: 8px;">
+        <label><input type="checkbox" id="auto-rotate" checked> Auto-rotate</label>
+      </div>
+
+      <div class="control-group">
+        <label><input type="checkbox" id="show-edges"> Show edges</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <canvas id="canvas3d"></canvas>
+    <div class="overlay-info" id="time-display">t = 0</div>
+    <div class="overlay-hint">Drag to orbit | Scroll to zoom | Shift+drag to pan</div>
+  </div>
+
+  <div class="sidebar-right">
+    <div class="section-title">Live Metrics</div>
+
+    <div class="metric-card">
+      <div class="label">Regime</div>
+      <div class="val neutral" id="m-regime">--</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Effective Speed</div>
+      <div class="val neutral" id="m-speed">--</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Speed (v/c)</div>
+      <div class="val neutral" id="m-ratio">--</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Total Intensity</div>
+      <div class="val neutral" id="m-intensity">--</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Peak Intensity</div>
+      <div class="val neutral" id="m-peak">--</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Wavefront Radius</div>
+      <div class="val neutral" id="m-radius">--</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Active Nodes</div>
+      <div class="val neutral" id="m-active">--</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Alpha Critical</div>
+      <div class="val neutral" id="m-alpha-crit">--</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Lattice</div>
+      <div class="val neutral" id="m-lattice">--</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Timestep</div>
+      <div class="val neutral" id="m-timestep">0</div>
+    </div>
+
+    <div style="margin-top: 12px;">
+      <div class="section-title">Physics</div>
+      <div style="font-size:0.7em; color:var(--dim); line-height:1.4;">
+        <p>3D lattice: 6-connected cubic grid.
+        Each interior node has <b style="color:var(--accent)">degree 6</b>.</p>
+        <p style="margin-top:6px;">Critical alpha for k=6:
+        <b style="color:var(--accent)">alpha_crit = (pi/2 - 1)/6 ~= 0.0951</b></p>
+        <p style="margin-top:6px;">The wavefront expands as a
+        <b style="color:var(--ok)">3D diamond</b> (octahedron)
+        at 1 node/step in the supercritical regime.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ============================================================
+//  PROPAGATION ENGINE (same math as Python)
+// ============================================================
+const COMPRESSION = 2.0 / Math.PI;
+
+function buildGraph3D(side) {
+  const n = side * side * side;
+  const adj = new Array(n);
+  for (let i = 0; i < n; i++) adj[i] = [];
+
+  for (let x = 0; x < side; x++) {
+    for (let y = 0; y < side; y++) {
+      for (let z = 0; z < side; z++) {
+        const node = x * side * side + y * side + z;
+        if (x + 1 < side) { const nb = node + side * side; adj[node].push(nb); adj[nb].push(node); }
+        if (y + 1 < side) { const nb = node + side; adj[node].push(nb); adj[nb].push(node); }
+        if (z + 1 < side) { const nb = node + 1; adj[node].push(nb); adj[nb].push(node); }
+      }
+    }
+  }
+  return adj;
+}
+
+function stepPropagation(adj, current, alpha) {
+  const n = current.length;
+  const next = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    let neighborSum = 0;
+    const neighbors = adj[i];
+    for (let k = 0; k < neighbors.length; k++) {
+      neighborSum += current[neighbors[k]];
+    }
+    next[i] = COMPRESSION * (current[i] + alpha * neighborSum);
+  }
+  return next;
+}
+
+function criticalAlpha(degree) {
+  if (degree <= 0) return Infinity;
+  return (Math.PI / 2 - 1) / degree;
+}
+
+// ============================================================
+//  STATE
+// ============================================================
+let state = {
+  side: 10,
+  adj: null,
+  current: null,
+  timestep: 0,
+  alpha: 0.40,
+  playing: false,
+  animSpeed: 8,
+  threshold: 0.001,
+  nodeScale: 1.0,
+  sliceZ: -1,
+  autoRotate: true,
+  showEdges: false,
+};
+
+function centerNode(side) {
+  const c = Math.floor(side / 2);
+  return c * side * side + c * side + c;
+}
+
+function resetSimulation() {
+  const side = parseInt(document.getElementById('side').value);
+  state.side = side;
+  state.alpha = parseFloat(document.getElementById('alpha').value);
+  state.animSpeed = parseInt(document.getElementById('speed').value);
+  const n = side * side * side;
+  state.adj = buildGraph3D(side);
+  state.current = new Float64Array(n);
+  state.current[centerNode(side)] = 1.0;
+  state.timestep = 0;
+  state.playing = false;
+  document.getElementById('btn-play').textContent = 'Play';
+  document.getElementById('slice').max = side - 1;
+
+  rebuildMesh();
+  updateVisuals();
+  updateMetrics();
+}
+
+function doStep() {
+  state.current = stepPropagation(state.adj, state.current, state.alpha);
+  state.timestep++;
+  updateVisuals();
+  updateMetrics();
+}
+
+// ============================================================
+//  THREE.JS SETUP
+// ============================================================
+const canvas = document.getElementById('canvas3d');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+renderer.setClearColor(0x0a0a1a);
+renderer.setPixelRatio(window.devicePixelRatio);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x0a0a1a, 0.015);
+
+const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 500);
+camera.position.set(18, 14, 18);
+
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 1.2;
+controls.target.set(0, 0, 0);
+
+// Lights
+const ambient = new THREE.AmbientLight(0x334466, 1.0);
+scene.add(ambient);
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+dirLight.position.set(20, 30, 20);
+scene.add(dirLight);
+const pointLight = new THREE.PointLight(0x00ccff, 1.0, 80);
+pointLight.position.set(0, 0, 0);
+scene.add(pointLight);
+
+// Grid helper
+const gridHelper = new THREE.GridHelper(30, 30, 0x1a1a3a, 0x1a1a3a);
+gridHelper.position.y = -0.5;
+scene.add(gridHelper);
+
+// ============================================================
+//  INSTANCED MESH
+// ============================================================
+let instancedMesh = null;
+let edgeLines = null;
+const dummy = new THREE.Object3D();
+const baseGeometry = new THREE.SphereGeometry(0.35, 12, 8);
+
+function intensityToColor(val, maxVal) {
+  const v = Math.min(1, maxVal > 0 ? val / maxVal : 0);
+  const r = v < 0.33 ? 0.04 + 0.08 * (v / 0.33) :
+            v < 0.66 ? 0.12 + 0.20 * ((v - 0.33) / 0.33) :
+            0.32 + 0.68 * ((v - 0.66) / 0.34);
+  const g = v < 0.33 ? 0.08 + 0.23 * (v / 0.33) :
+            v < 0.66 ? 0.31 + 0.69 * ((v - 0.33) / 0.33) :
+            1.0;
+  const b = v < 0.33 ? 0.24 + 0.76 * (v / 0.33) :
+            1.0;
+  return new THREE.Color(r, g, b);
+}
+
+function nodePosition(idx, side) {
+  const x = Math.floor(idx / (side * side));
+  const y = Math.floor((idx % (side * side)) / side);
+  const z = idx % side;
+  const offset = (side - 1) / 2;
+  return new THREE.Vector3(x - offset, y - offset, z - offset);
+}
+
+function rebuildMesh() {
+  if (instancedMesh) { scene.remove(instancedMesh); instancedMesh.geometry.dispose(); instancedMesh.material.dispose(); }
+  if (edgeLines) { scene.remove(edgeLines); edgeLines.geometry.dispose(); edgeLines.material.dispose(); }
+
+  const n = state.side * state.side * state.side;
+  const material = new THREE.MeshPhongMaterial({
+    transparent: true,
+    depthWrite: true,
+  });
+  instancedMesh = new THREE.InstancedMesh(baseGeometry, material, n);
+  instancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+
+  if (!instancedMesh.instanceColor) {
+    const colors = new Float32Array(n * 3);
+    instancedMesh.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
+  }
+  instancedMesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+
+  for (let i = 0; i < n; i++) {
+    const pos = nodePosition(i, state.side);
+    dummy.position.copy(pos);
+    dummy.scale.setScalar(0.01);
+    dummy.updateMatrix();
+    instancedMesh.setMatrixAt(i, dummy.matrix);
+    instancedMesh.setColorAt(i, new THREE.Color(0x111122));
+  }
+  instancedMesh.instanceMatrix.needsUpdate = true;
+  instancedMesh.instanceColor.needsUpdate = true;
+  scene.add(instancedMesh);
+
+  // Update camera distance based on cube size
+  const dist = state.side * 1.5;
+  camera.position.set(dist, dist * 0.8, dist);
+  controls.target.set(0, 0, 0);
+  controls.update();
+
+  gridHelper.visible = state.side <= 15;
+}
+
+function buildEdgeGeometry() {
+  if (edgeLines) { scene.remove(edgeLines); edgeLines.geometry.dispose(); edgeLines.material.dispose(); edgeLines = null; }
+  if (!state.showEdges || state.side > 8) return;
+
+  const points = [];
+  const side = state.side;
+  const n = side * side * side;
+  const visited = new Set();
+
+  for (let i = 0; i < n; i++) {
+    const p1 = nodePosition(i, side);
+    for (const j of state.adj[i]) {
+      const key = Math.min(i, j) * n + Math.max(i, j);
+      if (visited.has(key)) continue;
+      visited.add(key);
+      const p2 = nodePosition(j, side);
+      points.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+  const material = new THREE.LineBasicMaterial({ color: 0x222244, transparent: true, opacity: 0.3 });
+  edgeLines = new THREE.LineSegments(geometry, material);
+  scene.add(edgeLines);
+}
+
+// ============================================================
+//  UPDATE VISUALS
+// ============================================================
+function updateVisuals() {
+  if (!instancedMesh) return;
+  const n = state.current.length;
+  const side = state.side;
+  const thresh = state.threshold;
+  const sliceZ = state.sliceZ;
+  const scale = state.nodeScale;
+
+  let maxVal = 0;
+  for (let i = 0; i < n; i++) if (state.current[i] > maxVal) maxVal = state.current[i];
+  if (maxVal < 1e-15) maxVal = 1;
+
+  for (let i = 0; i < n; i++) {
+    const val = state.current[i];
+    const pos = nodePosition(i, side);
+    const z = i % side;
+
+    const visible = val > thresh && (sliceZ < 0 || z === sliceZ);
+    const normalized = val / maxVal;
+
+    dummy.position.copy(pos);
+    if (visible) {
+      const s = (0.3 + 0.7 * Math.min(1, normalized)) * scale;
+      dummy.scale.setScalar(s);
+    } else {
+      dummy.scale.setScalar(0.01);
+    }
+    dummy.updateMatrix();
+    instancedMesh.setMatrixAt(i, dummy.matrix);
+
+    const color = visible ? intensityToColor(val, maxVal) : new THREE.Color(0x111122);
+    instancedMesh.setColorAt(i, color);
+  }
+
+  instancedMesh.instanceMatrix.needsUpdate = true;
+  instancedMesh.instanceColor.needsUpdate = true;
+
+  pointLight.intensity = Math.min(3, 0.5 + maxVal * 0.01);
+
+  document.getElementById('time-display').textContent = `t = ${state.timestep}`;
+}
+
+// ============================================================
+//  METRICS
+// ============================================================
+function updateMetrics() {
+  const n = state.current.length;
+  const side = state.side;
+  const src = centerNode(side);
+  const ac = criticalAlpha(6);
+  const regime = state.alpha > ac ? 'SUPERCRITICAL' : 'SUBCRITICAL';
+  const cls = state.alpha > ac ? 'super' : 'sub';
+
+  let total = 0, peak = 0, maxDist = 0, active = 0;
+  const srcPos = nodePosition(src, side);
+
+  for (let i = 0; i < n; i++) {
+    total += state.current[i];
+    if (state.current[i] > peak) peak = state.current[i];
+    if (state.current[i] > 1e-6) {
+      active++;
+      const p = nodePosition(i, side);
+      const dist = Math.abs(p.x - srcPos.x) + Math.abs(p.y - srcPos.y) + Math.abs(p.z - srcPos.z);
+      if (dist > maxDist) maxDist = dist;
+    }
+  }
+
+  const speed = state.timestep > 0 ? maxDist / state.timestep : 0;
+
+  document.getElementById('m-regime').textContent = regime;
+  document.getElementById('m-regime').className = 'val ' + cls;
+  document.getElementById('m-speed').textContent = speed.toFixed(4) + ' n/s';
+  document.getElementById('m-speed').className = 'val ' + cls;
+  document.getElementById('m-ratio').textContent = Math.min(1, speed).toFixed(4);
+  document.getElementById('m-ratio').className = 'val ' + cls;
+  document.getElementById('m-intensity').textContent = formatNum(total);
+  document.getElementById('m-peak').textContent = formatNum(peak);
+  document.getElementById('m-radius').textContent = maxDist + ' nodes';
+  document.getElementById('m-active').textContent = active + ' / ' + n;
+  document.getElementById('m-alpha-crit').textContent = ac.toFixed(4);
+  document.getElementById('m-lattice').textContent = `${side}x${side}x${side} = ${n}`;
+  document.getElementById('m-timestep').textContent = state.timestep;
+}
+
+function formatNum(v) {
+  if (v > 1e6) return v.toExponential(2);
+  if (v > 1000) return v.toFixed(0);
+  if (v > 1) return v.toFixed(2);
+  return v.toFixed(6);
+}
+
+// ============================================================
+//  ANIMATION LOOP
+// ============================================================
+let lastFrame = 0;
+
+function animate(ts) {
+  requestAnimationFrame(animate);
+
+  if (state.playing) {
+    const interval = 1000 / state.animSpeed;
+    if (ts - lastFrame >= interval) {
+      doStep();
+      lastFrame = ts;
+    }
+  }
+
+  controls.autoRotate = state.autoRotate;
+  controls.update();
+
+  const rect = canvas.parentElement.getBoundingClientRect();
+  if (canvas.width !== rect.width * devicePixelRatio || canvas.height !== rect.height * devicePixelRatio) {
+    renderer.setSize(rect.width, rect.height);
+    camera.aspect = rect.width / rect.height;
+    camera.updateProjectionMatrix();
+  }
+
+  renderer.render(scene, camera);
+}
+
+// ============================================================
+//  EVENT WIRING
+// ============================================================
+document.getElementById('alpha').addEventListener('input', e => {
+  state.alpha = parseFloat(e.target.value);
+  document.getElementById('alpha-val').textContent = state.alpha.toFixed(2);
+  updateMetrics();
+});
+
+document.getElementById('side').addEventListener('input', e => {
+  document.getElementById('side-val').textContent = e.target.value;
+});
+document.getElementById('side').addEventListener('change', () => resetSimulation());
+
+document.getElementById('speed').addEventListener('input', e => {
+  state.animSpeed = parseInt(e.target.value);
+  document.getElementById('speed-val').textContent = state.animSpeed;
+});
+
+document.getElementById('threshold').addEventListener('input', e => {
+  state.threshold = parseFloat(e.target.value);
+  document.getElementById('thresh-val').textContent = state.threshold.toFixed(3);
+  updateVisuals();
+});
+
+document.getElementById('nodesize').addEventListener('input', e => {
+  state.nodeScale = parseFloat(e.target.value);
+  document.getElementById('size-val').textContent = state.nodeScale.toFixed(1);
+  updateVisuals();
+});
+
+document.getElementById('slice').addEventListener('input', e => {
+  const v = parseInt(e.target.value);
+  state.sliceZ = v;
+  document.getElementById('slice-val').textContent = v < 0 ? 'all' : v;
+  updateVisuals();
+});
+
+document.getElementById('btn-play').addEventListener('click', () => {
+  state.playing = !state.playing;
+  document.getElementById('btn-play').textContent = state.playing ? 'Pause' : 'Play';
+});
+
+document.getElementById('btn-step').addEventListener('click', () => {
+  state.playing = false;
+  document.getElementById('btn-play').textContent = 'Play';
+  doStep();
+});
+
+document.getElementById('btn-reset').addEventListener('click', () => resetSimulation());
+
+document.getElementById('btn-cam-reset').addEventListener('click', () => {
+  const dist = state.side * 1.5;
+  camera.position.set(dist, dist * 0.8, dist);
+  controls.target.set(0, 0, 0);
+  controls.update();
+});
+
+document.getElementById('auto-rotate').addEventListener('change', e => {
+  state.autoRotate = e.target.checked;
+});
+
+document.getElementById('show-edges').addEventListener('change', e => {
+  state.showEdges = e.target.checked;
+  buildEdgeGeometry();
+});
+
+// ============================================================
+//  INIT
+// ============================================================
+resetSimulation();
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

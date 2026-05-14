@@ -43,6 +43,38 @@ class TestGraph:
         assert 1 in g.neighbors(0)
         assert 0 in g.neighbors(1)
 
+    def test_grid_3d_node_count(self):
+        g = Graph.grid_3d(3, 4, 5)
+        assert g.num_nodes == 60
+
+    def test_grid_3d_interior_degree(self):
+        g = Graph.grid_3d(5, 5, 5)
+        # interior node (2,2,2) = 2*25+2*5+2 = 62
+        assert g.degree(62) == 6
+
+    def test_grid_3d_corner_degree(self):
+        g = Graph.grid_3d(5, 5, 5)
+        assert g.degree(0) == 3
+
+    def test_grid_3d_edge_connectivity(self):
+        g = Graph.grid_3d(3, 3, 3)
+        # node (0,0,0)=0 should connect to (1,0,0)=9, (0,1,0)=3, (0,0,1)=1
+        nbrs = set(g.neighbors(0))
+        assert 9 in nbrs  # x+1
+        assert 3 in nbrs  # y+1
+        assert 1 in nbrs  # z+1
+        assert len(nbrs) == 3
+
+    def test_grid_3d_propagation(self):
+        g = Graph.grid_3d(3, 3, 3)
+        initial = [0.0] * 27
+        initial[13] = 1.0  # center node
+        result = propagate(g, initial, alpha=0.5, timesteps=3)
+        assert result.intensity_at(3, 13) > 0
+        # neighbors should have intensity
+        for nb in g.neighbors(13):
+            assert result.intensity_at(3, nb) > 0
+
 
 # ── Propagation recurrence ───────────────────────────────────────
 

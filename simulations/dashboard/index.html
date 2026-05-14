@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lightspeed Propagation Dashboard</title>
+<style>
+  :root {
+    --bg: #0a0a1a;
+    --panel: #12122a;
+    --border: #2a2a4a;
+    --text: #e0e0f0;
+    --dim: #8888aa;
+    --accent: #00ccff;
+    --warn: #ff6644;
+    --ok: #44ff88;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Courier New', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  .header {
+    text-align: center;
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, #0f0f2a 0%, var(--bg) 100%);
+  }
+  .header h1 { font-size: 1.5em; color: var(--accent); letter-spacing: 2px; }
+  .header .formula {
+    font-size: 0.95em;
+    color: var(--dim);
+    margin-top: 6px;
+  }
+  .header .nav-link {
+    font-size: 0.85em;
+    color: var(--accent);
+    text-decoration: none;
+    border: 1px solid var(--accent);
+    padding: 4px 14px;
+    border-radius: 4px;
+    margin-top: 8px;
+    display: inline-block;
+  }
+  .header .nav-link:hover { background: var(--accent); color: var(--bg); }
+  .layout {
+    display: grid;
+    grid-template-columns: 280px 1fr 280px;
+    gap: 0;
+    min-height: calc(100vh - 80px);
+  }
+  .sidebar {
+    padding: 16px;
+    border-right: 1px solid var(--border);
+    background: var(--panel);
+    overflow-y: auto;
+  }
+  .sidebar-right {
+    padding: 16px;
+    border-left: 1px solid var(--border);
+    background: var(--panel);
+    overflow-y: auto;
+  }
+  .main { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+  .section-title {
+    font-size: 0.75em;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .control-group { margin-bottom: 16px; }
+  .control-group label {
+    display: block;
+    font-size: 0.8em;
+    color: var(--dim);
+    margin-bottom: 4px;
+  }
+  .control-group .value {
+    float: right;
+    color: var(--accent);
+    font-weight: bold;
+  }
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+    background: transparent;
+    cursor: pointer;
+  }
+  select, button {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 0.85em;
+    cursor: pointer;
+  }
+  select:hover, button:hover { border-color: var(--accent); }
+  button.primary {
+    background: var(--accent);
+    color: var(--bg);
+    font-weight: bold;
+    border: none;
+  }
+  button.primary:hover { opacity: 0.85; }
+  .btn-row { display: flex; gap: 6px; margin-top: 8px; }
+  .btn-row button { flex: 1; }
+  .metric-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+  }
+  .metric-card .label {
+    font-size: 0.7em;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .metric-card .val {
+    font-size: 1.4em;
+    font-weight: bold;
+    margin-top: 2px;
+  }
+  .metric-card .val.super { color: var(--ok); }
+  .metric-card .val.sub { color: var(--warn); }
+  .metric-card .val.neutral { color: var(--accent); }
+  .canvas-wrap {
+    flex: 1;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    position: relative;
+    min-height: 300px;
+    overflow: hidden;
+  }
+  .canvas-wrap canvas { display: block; width: 100%; height: 100%; }
+  .canvas-label {
+    position: absolute;
+    top: 8px;
+    left: 12px;
+    font-size: 0.7em;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    pointer-events: none;
+  }
+  .chart-area {
+    height: 200px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    position: relative;
+    overflow: hidden;
+  }
+  .chart-area canvas { display: block; width: 100%; height: 100%; }
+  .time-display {
+    position: absolute;
+    bottom: 8px;
+    right: 12px;
+    font-size: 0.85em;
+    color: var(--accent);
+    pointer-events: none;
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar, .sidebar-right { border: none; border-bottom: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>LIGHTSPEED PROPAGATION</h1>
+  <div class="formula">B(i,t+1) = (2/pi) [ B(i,t) + alpha * Sum B(j,t) ]</div>
+  <a class="nav-link" href="index3d.html">3D View</a>
+</div>
+
+<div class="layout">
+  <!-- Left sidebar: controls -->
+  <div class="sidebar">
+    <div class="section-title">Controls</div>
+
+    <div class="control-group">
+      <label>Alpha (propagation) <span class="value" id="alpha-val">0.50</span></label>
+      <input type="range" id="alpha" min="0" max="1.5" step="0.01" value="0.50">
+    </div>
+
+    <div class="control-group">
+      <label>Topology</label>
+      <select id="topology">
+        <option value="chain">Chain (1D)</option>
+        <option value="ring">Ring</option>
+        <option value="grid" selected>Grid (2D)</option>
+        <option value="complete">Complete</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label>Nodes <span class="value" id="nodes-val">400</span></label>
+      <input type="range" id="nodes" min="9" max="2500" step="1" value="400">
+    </div>
+
+    <div class="control-group">
+      <label>Speed <span class="value" id="speed-val">10</span> steps/s</label>
+      <input type="range" id="speed" min="1" max="60" step="1" value="10">
+    </div>
+
+    <div class="btn-row">
+      <button class="primary" id="btn-play">Play</button>
+      <button id="btn-step">Step</button>
+      <button id="btn-reset">Reset</button>
+    </div>
+
+    <div style="margin-top: 20px;">
+      <div class="section-title">Phase Scan</div>
+      <button id="btn-scan">Run Phase Scan</button>
+    </div>
+
+    <div style="margin-top: 20px;">
+      <div class="section-title">Source Node</div>
+      <div class="control-group">
+        <label>Position <span class="value" id="source-val">center</span></label>
+        <select id="source-pos">
+          <option value="center" selected>Center</option>
+          <option value="corner">Corner (0,0)</option>
+          <option value="edge">Edge midpoint</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main area: wavefront + chart -->
+  <div class="main">
+    <div class="canvas-wrap" style="flex: 2;">
+      <div class="canvas-label">Wavefront Propagation</div>
+      <canvas id="wavefront"></canvas>
+      <div class="time-display" id="time-display">t = 0</div>
+    </div>
+    <div class="chart-area">
+      <div class="canvas-label">Phase Diagram: Alpha vs Effective Speed</div>
+      <canvas id="phase-chart"></canvas>
+    </div>
+  </div>
+
+  <!-- Right sidebar: metrics -->
+  <div class="sidebar-right">
+    <div class="section-title">Live Metrics</div>
+
+    <div class="metric-card">
+      <div class="label">Regime</div>
+      <div class="val neutral" id="m-regime">--</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Effective Speed</div>
+      <div class="val neutral" id="m-speed">--</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Speed Ratio (v/c)</div>
+      <div class="val neutral" id="m-ratio">--</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Total Intensity</div>
+      <div class="val neutral" id="m-intensity">--</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Peak Intensity</div>
+      <div class="val neutral" id="m-peak">--</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Wavefront Radius</div>
+      <div class="val neutral" id="m-radius">--</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Alpha Critical</div>
+      <div class="val neutral" id="m-alpha-crit">--</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Compression (2/pi)</div>
+      <div class="val neutral" id="m-compression">0.6366</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Timestep</div>
+      <div class="val neutral" id="m-timestep">0</div>
+    </div>
+
+    <div style="margin-top: 16px;">
+      <div class="section-title">Physics Notes</div>
+      <div style="font-size:0.75em; color:var(--dim); line-height:1.5;">
+        <p>The <b style="color:var(--accent)">2/pi</b> compression decays
+        intensity each step. The <b style="color:var(--accent)">critical alpha</b>
+        is where neighbor coupling exactly compensates decay.</p>
+        <p style="margin-top:8px;">Above alpha_crit the wavefront advances at
+        <b style="color:var(--ok)">1 node/step</b> &mdash; the system's speed of light.</p>
+        <p style="margin-top:8px;">Map to real c: set dx/dt = 3e8 m/s.
+        At 1m spacing, each step = 3.33 ns.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  PROPAGATION ENGINE (same math as Python, client-side)
+// ============================================================
+const COMPRESSION = 2.0 / Math.PI;
+
+function buildGraph(topology, n) {
+  const adj = new Array(n);
+  for (let i = 0; i < n; i++) adj[i] = [];
+
+  if (topology === 'chain') {
+    for (let i = 0; i < n - 1; i++) { adj[i].push(i+1); adj[i+1].push(i); }
+  } else if (topology === 'ring') {
+    for (let i = 0; i < n - 1; i++) { adj[i].push(i+1); adj[i+1].push(i); }
+    if (n > 2) { adj[0].push(n-1); adj[n-1].push(0); }
+  } else if (topology === 'grid') {
+    const side = Math.round(Math.sqrt(n));
+    for (let r = 0; r < side; r++) {
+      for (let c = 0; c < side; c++) {
+        const node = r * side + c;
+        if (c + 1 < side) { adj[node].push(node+1); adj[node+1].push(node); }
+        if (r + 1 < side) { adj[node].push(node+side); adj[node+side].push(node); }
+      }
+    }
+  } else if (topology === 'complete') {
+    for (let i = 0; i < n; i++)
+      for (let j = i+1; j < n; j++) { adj[i].push(j); adj[j].push(i); }
+  }
+  return adj;
+}
+
+function typicalDegree(adj, n) {
+  if (n < 2) return 0;
+  return adj[Math.min(1, n-1)].length;
+}
+
+function criticalAlpha(degree) {
+  if (degree <= 0) return Infinity;
+  return (Math.PI / 2 - 1) / degree;
+}
+
+function stepPropagation(adj, current, alpha) {
+  const n = current.length;
+  const next = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    let neighborSum = 0;
+    const neighbors = adj[i];
+    for (let k = 0; k < neighbors.length; k++) {
+      neighborSum += current[neighbors[k]];
+    }
+    next[i] = COMPRESSION * (current[i] + alpha * neighborSum);
+  }
+  return next;
+}
+
+// ============================================================
+//  DASHBOARD STATE
+// ============================================================
+let state = {
+  adj: null,
+  current: null,
+  n: 400,
+  topology: 'grid',
+  alpha: 0.5,
+  timestep: 0,
+  playing: false,
+  animSpeed: 10,
+  sourcePos: 'center',
+  phaseScanData: null,
+  currentAlphaLine: null,
+};
+
+function getSourceNode(n, topology, pos) {
+  if (topology === 'grid') {
+    const side = Math.round(Math.sqrt(n));
+    if (pos === 'center') return Math.floor(side/2) * side + Math.floor(side/2);
+    if (pos === 'corner') return 0;
+    if (pos === 'edge') return Math.floor(side/2);
+  }
+  if (pos === 'center') return Math.floor(n / 2);
+  if (pos === 'corner') return 0;
+  return Math.floor(n / 4);
+}
+
+function resetSimulation() {
+  const topo = document.getElementById('topology').value;
+  let n = parseInt(document.getElementById('nodes').value);
+  if (topo === 'grid') {
+    const side = Math.round(Math.sqrt(n));
+    n = side * side;
+  }
+  if (topo === 'complete') n = Math.min(n, 200);
+
+  state.topology = topo;
+  state.n = n;
+  state.alpha = parseFloat(document.getElementById('alpha').value);
+  state.animSpeed = parseInt(document.getElementById('speed').value);
+  state.sourcePos = document.getElementById('source-pos').value;
+  state.adj = buildGraph(topo, n);
+  state.current = new Float64Array(n);
+  state.current[getSourceNode(n, topo, state.sourcePos)] = 1.0;
+  state.timestep = 0;
+  state.playing = false;
+  document.getElementById('btn-play').textContent = 'Play';
+  updateMetrics();
+  drawWavefront();
+}
+
+function doStep() {
+  state.current = stepPropagation(state.adj, state.current, state.alpha);
+  state.timestep++;
+  updateMetrics();
+  drawWavefront();
+}
+
+// ============================================================
+//  RENDERING: WAVEFRONT
+// ============================================================
+function drawWavefront() {
+  const canvas = document.getElementById('wavefront');
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width * devicePixelRatio;
+  canvas.height = rect.height * devicePixelRatio;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  const w = rect.width, h = rect.height;
+
+  ctx.fillStyle = '#0a0a1a';
+  ctx.fillRect(0, 0, w, h);
+
+  const n = state.n;
+  const data = state.current;
+  let maxVal = 0;
+  for (let i = 0; i < n; i++) if (data[i] > maxVal) maxVal = data[i];
+  if (maxVal < 1e-15) maxVal = 1;
+
+  if (state.topology === 'grid') {
+    const side = Math.round(Math.sqrt(n));
+    const pad = 40;
+    const cellW = (w - 2*pad) / side;
+    const cellH = (h - 2*pad) / side;
+    const cellSize = Math.min(cellW, cellH);
+    const ox = (w - side * cellSize) / 2;
+    const oy = (h - side * cellSize) / 2;
+
+    for (let r = 0; r < side; r++) {
+      for (let c = 0; c < side; c++) {
+        const idx = r * side + c;
+        const val = data[idx] / maxVal;
+        const x = ox + c * cellSize;
+        const y = oy + r * cellSize;
+        ctx.fillStyle = intensityColor(val);
+        ctx.fillRect(x + 0.5, y + 0.5, cellSize - 1, cellSize - 1);
+      }
+    }
+  } else {
+    // 1D layouts: draw as horizontal bars with height
+    const barH = Math.min(80, (h - 80) / 2);
+    const pad = 40;
+    const barW = (w - 2*pad) / n;
+    const oy = h / 2 - barH / 2;
+
+    for (let i = 0; i < n; i++) {
+      const val = data[i] / maxVal;
+      const x = pad + i * barW;
+      const intensity = Math.min(1, val);
+      const barHeight = barH * intensity;
+      ctx.fillStyle = intensityColor(val);
+      ctx.fillRect(x, oy + barH - barHeight, Math.max(1, barW - 0.5), barHeight);
+    }
+
+    // Draw baseline
+    ctx.strokeStyle = '#2a2a4a';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad, oy + barH);
+    ctx.lineTo(w - pad, oy + barH);
+    ctx.stroke();
+  }
+
+  document.getElementById('time-display').textContent = `t = ${state.timestep}`;
+}
+
+function intensityColor(normalized) {
+  if (normalized < 0.001) return '#111122';
+  // Blue -> Cyan -> White hot
+  const v = Math.min(1, normalized);
+  if (v < 0.33) {
+    const t = v / 0.33;
+    return `rgb(${Math.floor(10 + 20*t)}, ${Math.floor(20 + 60*t)}, ${Math.floor(60 + 195*t)})`;
+  } else if (v < 0.66) {
+    const t = (v - 0.33) / 0.33;
+    return `rgb(${Math.floor(30 + 50*t)}, ${Math.floor(80 + 175*t)}, ${Math.floor(255)})`;
+  } else {
+    const t = (v - 0.66) / 0.34;
+    return `rgb(${Math.floor(80 + 175*t)}, ${Math.floor(255)}, ${Math.floor(255)})`;
+  }
+}
+
+// ============================================================
+//  RENDERING: PHASE CHART
+// ============================================================
+function drawPhaseChart() {
+  const canvas = document.getElementById('phase-chart');
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width * devicePixelRatio;
+  canvas.height = rect.height * devicePixelRatio;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  const w = rect.width, h = rect.height;
+
+  ctx.fillStyle = '#0a0a1a';
+  ctx.fillRect(0, 0, w, h);
+
+  const pad = { l: 50, r: 20, t: 30, b: 30 };
+  const pw = w - pad.l - pad.r;
+  const ph = h - pad.t - pad.b;
+
+  // Axes
+  ctx.strokeStyle = '#2a2a4a';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t);
+  ctx.lineTo(pad.l, pad.t + ph);
+  ctx.lineTo(pad.l + pw, pad.t + ph);
+  ctx.stroke();
+
+  // Labels
+  ctx.fillStyle = '#8888aa';
+  ctx.font = '10px Courier New';
+  ctx.textAlign = 'center';
+  ctx.fillText('alpha', pad.l + pw/2, h - 4);
+  ctx.save();
+  ctx.translate(12, pad.t + ph/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText('speed (v/c)', 0, 0);
+  ctx.restore();
+
+  // Tick marks
+  for (let a = 0; a <= 1; a += 0.2) {
+    const x = pad.l + (a / 1.0) * pw;
+    ctx.fillStyle = '#8888aa';
+    ctx.fillText(a.toFixed(1), x, pad.t + ph + 15);
+    ctx.strokeStyle = '#1a1a3a';
+    ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, pad.t + ph); ctx.stroke();
+  }
+  for (let s = 0; s <= 1; s += 0.25) {
+    const y = pad.t + ph - s * ph;
+    ctx.fillStyle = '#8888aa';
+    ctx.textAlign = 'right';
+    ctx.fillText(s.toFixed(2), pad.l - 6, y + 3);
+    ctx.strokeStyle = '#1a1a3a';
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + pw, y); ctx.stroke();
+  }
+
+  // Critical alpha line
+  const deg = typicalDegree(state.adj, state.n);
+  const ac = criticalAlpha(deg);
+  if (ac <= 1.0) {
+    const cx = pad.l + (ac / 1.0) * pw;
+    ctx.strokeStyle = '#ff664466';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(cx, pad.t); ctx.lineTo(cx, pad.t + ph); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#ff6644';
+    ctx.font = '9px Courier New';
+    ctx.textAlign = 'left';
+    ctx.fillText(`a_crit=${ac.toFixed(3)}`, cx + 4, pad.t + 12);
+  }
+
+  // Phase scan data
+  if (state.phaseScanData) {
+    ctx.strokeStyle = var_accent;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    let first = true;
+    for (const [a, speed] of state.phaseScanData) {
+      const x = pad.l + (a / 1.0) * pw;
+      const y = pad.t + ph - Math.min(1, speed) * ph;
+      if (first) { ctx.moveTo(x, y); first = false; }
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Data points
+    ctx.fillStyle = var_accent;
+    for (const [a, speed] of state.phaseScanData) {
+      const x = pad.l + (a / 1.0) * pw;
+      const y = pad.t + ph - Math.min(1, speed) * ph;
+      ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
+  // Current alpha indicator
+  const curX = pad.l + (state.alpha / 1.0) * pw;
+  if (state.alpha <= 1.0) {
+    ctx.strokeStyle = '#44ff88';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([2, 2]);
+    ctx.beginPath(); ctx.moveTo(curX, pad.t); ctx.lineTo(curX, pad.t + ph); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+const var_accent = '#00ccff';
+
+// ============================================================
+//  PHASE SCAN
+// ============================================================
+function runPhaseScan() {
+  const n = state.n;
+  const topo = state.topology;
+  const steps = 50;
+  const results = [];
+
+  for (let ai = 0; ai <= 50; ai++) {
+    const a = ai * 0.02;
+    const adj = buildGraph(topo, n);
+    let cur = new Float64Array(n);
+    cur[getSourceNode(n, topo, state.sourcePos)] = 1.0;
+    const startPos = wavefrontPos(cur);
+
+    for (let t = 0; t < steps; t++) {
+      cur = stepPropagation(adj, cur, a);
+    }
+    const endPos = wavefrontPos(cur);
+    const speed = endPos > startPos ? (endPos - startPos) / steps : 0;
+    results.push([a, Math.min(1, speed)]);
+  }
+
+  state.phaseScanData = results;
+  drawPhaseChart();
+}
+
+function wavefrontPos(data) {
+  let furthest = -1;
+  for (let i = 0; i < data.length; i++) {
+    if (data[i] > 1e-6) furthest = i;
+  }
+  return furthest;
+}
+
+// ============================================================
+//  METRICS
+// ============================================================
+function updateMetrics() {
+  const n = state.n;
+  const data = state.current;
+  const deg = typicalDegree(state.adj, n);
+  const ac = criticalAlpha(deg);
+  const regime = state.alpha > ac ? 'SUPERCRITICAL' : 'SUBCRITICAL';
+  const regimeClass = state.alpha > ac ? 'super' : 'sub';
+
+  let total = 0, peak = 0, radius = 0;
+  const src = getSourceNode(n, state.topology, state.sourcePos);
+
+  for (let i = 0; i < n; i++) {
+    total += data[i];
+    if (data[i] > peak) peak = data[i];
+    if (data[i] > 1e-6) {
+      const dist = nodeDistance(i, src, state.topology, n);
+      if (dist > radius) radius = dist;
+    }
+  }
+
+  const speed = state.timestep > 0 ? radius / state.timestep : 0;
+
+  document.getElementById('m-regime').textContent = regime;
+  document.getElementById('m-regime').className = 'val ' + regimeClass;
+  document.getElementById('m-speed').textContent = speed.toFixed(4) + ' n/s';
+  document.getElementById('m-speed').className = 'val ' + regimeClass;
+  document.getElementById('m-ratio').textContent = Math.min(1, speed).toFixed(4);
+  document.getElementById('m-ratio').className = 'val ' + regimeClass;
+  document.getElementById('m-intensity').textContent = formatNum(total);
+  document.getElementById('m-intensity').className = 'val neutral';
+  document.getElementById('m-peak').textContent = formatNum(peak);
+  document.getElementById('m-peak').className = 'val neutral';
+  document.getElementById('m-radius').textContent = radius + ' nodes';
+  document.getElementById('m-radius').className = 'val neutral';
+  document.getElementById('m-alpha-crit').textContent = ac === Infinity ? 'inf' : ac.toFixed(4);
+  document.getElementById('m-alpha-crit').className = 'val neutral';
+  document.getElementById('m-timestep').textContent = state.timestep;
+  document.getElementById('m-compression').textContent = COMPRESSION.toFixed(4);
+
+  drawPhaseChart();
+}
+
+function nodeDistance(i, src, topology, n) {
+  if (topology === 'grid') {
+    const side = Math.round(Math.sqrt(n));
+    const r1 = Math.floor(i / side), c1 = i % side;
+    const r2 = Math.floor(src / side), c2 = src % side;
+    return Math.abs(r1 - r2) + Math.abs(c1 - c2);
+  }
+  return Math.abs(i - src);
+}
+
+function formatNum(v) {
+  if (v > 1e6) return v.toExponential(2);
+  if (v > 1000) return v.toFixed(0);
+  if (v > 1) return v.toFixed(2);
+  return v.toFixed(6);
+}
+
+// ============================================================
+//  ANIMATION LOOP
+// ============================================================
+let lastFrame = 0;
+function animate(ts) {
+  if (state.playing) {
+    const interval = 1000 / state.animSpeed;
+    if (ts - lastFrame >= interval) {
+      doStep();
+      lastFrame = ts;
+    }
+  }
+  requestAnimationFrame(animate);
+}
+
+// ============================================================
+//  EVENT WIRING
+// ============================================================
+document.getElementById('alpha').addEventListener('input', e => {
+  state.alpha = parseFloat(e.target.value);
+  document.getElementById('alpha-val').textContent = state.alpha.toFixed(2);
+  updateMetrics();
+});
+
+document.getElementById('topology').addEventListener('change', () => resetSimulation());
+document.getElementById('source-pos').addEventListener('change', () => {
+  state.sourcePos = document.getElementById('source-pos').value;
+  document.getElementById('source-val').textContent = state.sourcePos;
+  resetSimulation();
+});
+
+document.getElementById('nodes').addEventListener('input', e => {
+  let n = parseInt(e.target.value);
+  const topo = document.getElementById('topology').value;
+  if (topo === 'grid') { const s = Math.round(Math.sqrt(n)); n = s*s; }
+  if (topo === 'complete') n = Math.min(n, 200);
+  document.getElementById('nodes-val').textContent = n;
+});
+document.getElementById('nodes').addEventListener('change', () => resetSimulation());
+
+document.getElementById('speed').addEventListener('input', e => {
+  state.animSpeed = parseInt(e.target.value);
+  document.getElementById('speed-val').textContent = state.animSpeed;
+});
+
+document.getElementById('btn-play').addEventListener('click', () => {
+  state.playing = !state.playing;
+  document.getElementById('btn-play').textContent = state.playing ? 'Pause' : 'Play';
+});
+
+document.getElementById('btn-step').addEventListener('click', () => {
+  state.playing = false;
+  document.getElementById('btn-play').textContent = 'Play';
+  doStep();
+});
+
+document.getElementById('btn-reset').addEventListener('click', () => resetSimulation());
+document.getElementById('btn-scan').addEventListener('click', () => runPhaseScan());
+
+// Handle resize
+window.addEventListener('resize', () => { drawWavefront(); drawPhaseChart(); });
+
+// ============================================================
+//  INIT
+// ============================================================
+resetSimulation();
+runPhaseScan();
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

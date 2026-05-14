@@ -77,6 +77,40 @@ class TestDashboard3DAssets:
         text = (DASHBOARD_DIR / "index3d.html").read_text(encoding="utf-8")
         assert 'href="index.html"' in text
 
+    def test_index3d_has_covid_presets(self):
+        text = (DASHBOARD_DIR / "index3d.html").read_text(encoding="utf-8")
+        assert "COVID_PRESETS" in text
+        assert "r0ToAlpha" in text
+        assert "alphaToR0" in text
+
+    def test_index3d_has_r0_values(self):
+        text = (DASHBOARD_DIR / "index3d.html").read_text(encoding="utf-8")
+        assert "2.5" in text
+        assert "5.0" in text
+        assert "12.0" in text
+
+    def test_index3d_has_epidemic_colors(self):
+        text = (DASHBOARD_DIR / "index3d.html").read_text(encoding="utf-8")
+        assert "epidemicColor" in text
+
+    def test_index3d_has_preset_buttons(self):
+        text = (DASHBOARD_DIR / "index3d.html").read_text(encoding="utf-8")
+        assert 'id="preset-original"' in text
+        assert 'id="preset-delta"' in text
+        assert 'id="preset-omicron"' in text
+
+    def test_index3d_tracks_previous_state(self):
+        text = (DASHBOARD_DIR / "index3d.html").read_text(encoding="utf-8")
+        assert "state.previous" in text
+        assert "state.peakEver" in text
+
+    def test_index3d_has_infection_counters(self):
+        text = (DASHBOARD_DIR / "index3d.html").read_text(encoding="utf-8")
+        assert "m-infected" in text
+        assert "m-new-infected" in text
+        assert "m-recovered" in text
+        assert "m-uninfected" in text
+
 
 class TestDashboardServer:
     def test_serves_index_html(self):

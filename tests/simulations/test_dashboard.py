@@ -112,6 +112,100 @@ class TestDashboard3DAssets:
         assert "m-uninfected" in text
 
 
+class TestTwinPrimesAssets:
+    def test_primes_html_exists(self):
+        assert (DASHBOARD_DIR / "primes.html").is_file()
+
+    def test_primes_html_has_primality_test(self):
+        text = (DASHBOARD_DIR / "primes.html").read_text(encoding="utf-8")
+        assert "isPrime" in text
+
+    def test_primes_html_has_gap_cycle(self):
+        text = (DASHBOARD_DIR / "primes.html").read_text(encoding="utf-8")
+        assert "GAPS" in text or "[2, 4, 2, 10, 2, 10]" in text
+
+    def test_primes_html_has_color_coding(self):
+        text = (DASHBOARD_DIR / "primes.html").read_text(encoding="utf-8")
+        for cls in ("prime", "composite", "interval", "twin-prime"):
+            assert cls in text
+
+    def test_primes_html_has_stats(self):
+        text = (DASHBOARD_DIR / "primes.html").read_text(encoding="utf-8")
+        for stat_id in ("m-primes", "m-twins", "m-density", "m-largest-twin"):
+            assert stat_id in text
+
+    def test_primes_html_has_navigation(self):
+        text = (DASHBOARD_DIR / "primes.html").read_text(encoding="utf-8")
+        assert 'href="index.html"' in text
+        assert 'href="index3d.html"' in text
+
+    def test_2d_links_to_primes(self):
+        text = (DASHBOARD_DIR / "index.html").read_text(encoding="utf-8")
+        assert 'href="primes.html"' in text
+
+    def test_3d_links_to_primes(self):
+        text = (DASHBOARD_DIR / "index3d.html").read_text(encoding="utf-8")
+        assert 'href="primes.html"' in text
+
+    def test_primes_html_has_animate_mode(self):
+        text = (DASHBOARD_DIR / "primes.html").read_text(encoding="utf-8")
+        assert "animate" in text.lower()
+
+
+class TestMarbleSimAssets:
+    def test_marbles_html_exists(self):
+        assert (DASHBOARD_DIR / "marbles.html").is_file()
+
+    def test_marbles_html_has_physics_engine(self):
+        text = (DASHBOARD_DIR / "marbles.html").read_text(encoding="utf-8")
+        assert "physicsStep" in text
+        assert "computeDispersion" in text
+
+    def test_marbles_html_has_collision_impulse(self):
+        text = (DASHBOARD_DIR / "marbles.html").read_text(encoding="utf-8")
+        assert "restitution" in text
+        assert "impulse" in text.lower() or "imp" in text
+
+    def test_marbles_html_has_three_js(self):
+        text = (DASHBOARD_DIR / "marbles.html").read_text(encoding="utf-8")
+        assert "three" in text
+        assert "OrbitControls" in text
+
+    def test_marbles_html_has_charts(self):
+        text = (DASHBOARD_DIR / "marbles.html").read_text(encoding="utf-8")
+        assert "chart-dispersion" in text
+        assert "chart-rate" in text
+
+    def test_marbles_html_has_controls(self):
+        text = (DASHBOARD_DIR / "marbles.html").read_text(encoding="utf-8")
+        assert 'id="marbles"' in text
+        assert 'id="gravity"' in text
+        assert 'id="restitution"' in text
+        assert 'id="friction"' in text
+
+    def test_marbles_html_has_phase_detection(self):
+        text = (DASHBOARD_DIR / "marbles.html").read_text(encoding="utf-8")
+        assert "detectPhase" in text
+        assert "impact" in text.lower()
+        assert "dispersion" in text.lower()
+
+    def test_marbles_html_has_navigation(self):
+        text = (DASHBOARD_DIR / "marbles.html").read_text(encoding="utf-8")
+        assert 'href="index.html"' in text
+        assert 'href="index3d.html"' in text
+        assert 'href="primes.html"' in text
+
+    def test_all_pages_link_to_marbles(self):
+        for page in ("index.html", "index3d.html", "primes.html"):
+            text = (DASHBOARD_DIR / page).read_text(encoding="utf-8")
+            assert 'href="marbles.html"' in text, f"{page} missing marbles link"
+
+    def test_marbles_html_has_metrics(self):
+        text = (DASHBOARD_DIR / "marbles.html").read_text(encoding="utf-8")
+        for metric_id in ("m-time", "m-dispersion", "m-rate", "m-impact", "m-energy"):
+            assert metric_id in text
+
+
 class TestDashboardServer:
     def test_serves_index_html(self):
         port = _find_free_port()
@@ -148,6 +242,42 @@ class TestDashboardServer:
         assert resp.status == 200
         body = resp.read().decode("utf-8")
         assert "LIGHTSPEED 3D" in body
+
+    def test_serves_primes_html(self):
+        port = _find_free_port()
+        server_thread = threading.Thread(
+            target=main,
+            args=(["--port", str(port)],),
+            daemon=True,
+        )
+        server_thread.start()
+        time.sleep(0.5)
+
+        resp: HTTPResponse = urllib.request.urlopen(
+            f"http://localhost:{port}/primes.html",
+            timeout=5,
+        )
+        assert resp.status == 200
+        body = resp.read().decode("utf-8")
+        assert "TWIN PRIME" in body
+
+    def test_serves_marbles_html(self):
+        port = _find_free_port()
+        server_thread = threading.Thread(
+            target=main,
+            args=(["--port", str(port)],),
+            daemon=True,
+        )
+        server_thread.start()
+        time.sleep(0.5)
+
+        resp: HTTPResponse = urllib.request.urlopen(
+            f"http://localhost:{port}/marbles.html",
+            timeout=5,
+        )
+        assert resp.status == 200
+        body = resp.read().decode("utf-8")
+        assert "HYPOTENUSE" in body
 
     def test_serves_root_as_index(self):
         port = _find_free_port()

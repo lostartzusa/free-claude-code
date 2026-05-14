@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Twin Prime Distribution Matrix</title>
+<style>
+  :root {
+    --bg: #0a0a1a;
+    --panel: #12122a;
+    --border: #2a2a4a;
+    --text: #e0e0f0;
+    --dim: #8888aa;
+    --accent: #00ccff;
+    --warn: #ff6644;
+    --ok: #44ff88;
+    --prime: #9966cc;
+    --prime-bg: #2a1a3a;
+    --composite: #cc6688;
+    --composite-bg: #3a1a2a;
+    --interval: #6688cc;
+    --interval-bg: #1a2a3a;
+    --twin-glow: #cc88ff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Courier New', monospace;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+  }
+  .header {
+    text-align: center;
+    padding: 10px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, #0f0f2a 0%, var(--bg) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+  }
+  .header h1 { font-size: 1.2em; color: var(--accent); letter-spacing: 2px; }
+  .header .subtitle { font-size: 0.85em; color: var(--dim); }
+  .header .nav-link {
+    font-size: 0.8em;
+    color: var(--accent);
+    text-decoration: none;
+    border: 1px solid var(--accent);
+    padding: 4px 12px;
+    border-radius: 4px;
+  }
+  .header .nav-link:hover { background: var(--accent); color: var(--bg); }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr 260px;
+    height: calc(100vh - 50px);
+  }
+  .sidebar {
+    padding: 12px;
+    border-right: 1px solid var(--border);
+    background: var(--panel);
+    overflow-y: auto;
+  }
+  .sidebar-right {
+    padding: 12px;
+    border-left: 1px solid var(--border);
+    background: var(--panel);
+    overflow-y: auto;
+  }
+  .main {
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .section-title {
+    font-size: 0.7em;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .control-group { margin-bottom: 12px; }
+  .control-group label {
+    display: block;
+    font-size: 0.75em;
+    color: var(--dim);
+    margin-bottom: 3px;
+  }
+  .control-group .value {
+    float: right;
+    color: var(--accent);
+    font-weight: bold;
+  }
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+    background: transparent;
+    cursor: pointer;
+  }
+  button {
+    width: 100%;
+    padding: 6px 8px;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 0.8em;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary {
+    background: var(--accent);
+    color: var(--bg);
+    font-weight: bold;
+    border: none;
+  }
+  button.primary:hover { opacity: 0.85; }
+  .metric-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+  }
+  .metric-card .label {
+    font-size: 0.65em;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .metric-card .val {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin-top: 1px;
+  }
+  .metric-card .val.accent { color: var(--accent); }
+  .metric-card .val.prime-color { color: var(--prime); }
+  .metric-card .val.twin-color { color: var(--twin-glow); }
+  .metric-card .val.warn { color: var(--warn); }
+  .metric-card .val.ok { color: var(--ok); }
+
+  /* Matrix styles */
+  .matrix-container {
+    width: 100%;
+    max-width: 900px;
+  }
+  .matrix-title {
+    text-align: center;
+    margin-bottom: 12px;
+  }
+  .matrix-title h2 {
+    font-size: 1.1em;
+    color: var(--accent);
+    letter-spacing: 2px;
+  }
+  .matrix-title .pattern {
+    font-size: 0.8em;
+    color: var(--dim);
+    margin-top: 4px;
+  }
+  .matrix-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 2px;
+    gap: 2px;
+  }
+  .cell {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 32px;
+    font-size: 0.75em;
+    font-weight: bold;
+    border-radius: 3px;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .cell:hover {
+    transform: scale(1.15);
+    z-index: 2;
+  }
+  .cell.prime {
+    background: var(--prime-bg);
+    color: var(--prime);
+    border: 1px solid var(--prime);
+  }
+  .cell.composite {
+    background: var(--composite-bg);
+    color: var(--composite);
+    border: 1px solid var(--composite);
+  }
+  .cell.interval {
+    background: var(--interval-bg);
+    color: var(--interval);
+    border: 1px solid transparent;
+    width: 36px;
+    font-size: 0.65em;
+  }
+  .cell.twin-prime {
+    background: #3a1a4a;
+    color: var(--twin-glow);
+    border: 2px solid var(--twin-glow);
+    box-shadow: 0 0 8px rgba(204, 136, 255, 0.4);
+  }
+  .cell.twin-prime:hover {
+    box-shadow: 0 0 16px rgba(204, 136, 255, 0.7);
+  }
+  .group-gap {
+    width: 12px;
+  }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7em;
+  }
+  .legend-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+  }
+
+  .highlight-toggle { margin-top: 8px; }
+  .highlight-toggle label {
+    font-size: 0.75em;
+    color: var(--dim);
+    cursor: pointer;
+  }
+  .highlight-toggle input { accent-color: var(--twin-glow); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>TWIN PRIME CONJECTURE</h1>
+  <div class="subtitle">Distribution Matrix — 11 {+2+4+2+10+2+10} repeat ∞</div>
+  <a class="nav-link" href="index.html">2D Sim</a>
+  <a class="nav-link" href="index3d.html">3D Sim</a>
+  <a class="nav-link" href="marbles.html">Marble Drop</a>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="section-title">Controls</div>
+
+    <div class="control-group">
+      <label>Rows <span class="value" id="rows-val">20</span></label>
+      <input type="range" id="rows" min="5" max="100" step="1" value="20">
+    </div>
+
+    <div class="control-group">
+      <label>Starting Number <span class="value" id="start-val">11</span></label>
+      <input type="range" id="start-num" min="11" max="11" step="30" value="11" disabled>
+    </div>
+
+    <div class="highlight-toggle">
+      <label><input type="checkbox" id="highlight-twins" checked> Highlight twin primes</label>
+    </div>
+
+    <div class="highlight-toggle">
+      <label><input type="checkbox" id="show-composites" checked> Show composites</label>
+    </div>
+
+    <div class="highlight-toggle">
+      <label><input type="checkbox" id="animate-mode"> Animate discovery</label>
+    </div>
+
+    <div style="margin-top: 8px;">
+      <button class="primary" id="btn-generate">Generate</button>
+    </div>
+
+    <div style="margin-top: 14px;">
+      <div class="section-title">How It Works</div>
+      <div style="font-size:0.7em; color:var(--dim); line-height:1.4;">
+        <p>All primes &gt; 5 avoid multiples of 2, 3, and 5.
+        The survivors follow a <b style="color:var(--accent)">repeating pattern</b>
+        with gaps of <b style="color:var(--interval)">+2, +4, +2, +10, +2, +10</b>
+        (sum = 30).</p>
+        <p style="margin-top:6px;"><b style="color:var(--twin-glow)">Twin primes</b>
+        are pairs that differ by exactly 2 (e.g., 11&amp;13, 17&amp;19, 29&amp;31).</p>
+        <p style="margin-top:6px;">The <b style="color:var(--accent)">Twin Prime Conjecture</b>
+        says there are <em>infinitely many</em> twin prime pairs.
+        Unproven since 1849.</p>
+        <p style="margin-top:6px;">This matrix shows <em>every candidate position</em>
+        where twin primes <em>could</em> occur &mdash; and which ones actually are prime.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="main" id="matrix-area">
+    <div class="matrix-container" id="matrix-container">
+      <div class="matrix-title">
+        <h2>TWIN PRIME DISTRIBUTION MATRIX</h2>
+        <div class="pattern">11 {+2+4+2+10+2+10} {repeat ... ∞}</div>
+      </div>
+      <div id="matrix"></div>
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-swatch" style="background:var(--prime-bg); border:1px solid var(--prime);"></div>
+          = Prime
+        </div>
+        <div class="legend-item">
+          <div class="legend-swatch" style="background:var(--interval-bg); border:1px solid var(--interval);"></div>
+          = Interval
+        </div>
+        <div class="legend-item">
+          <div class="legend-swatch" style="background:var(--composite-bg); border:1px solid var(--composite);"></div>
+          = Composite
+        </div>
+        <div class="legend-item">
+          <div class="legend-swatch" style="background:#3a1a4a; border:2px solid var(--twin-glow);"></div>
+          = Twin Prime Pair
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar-right">
+    <div class="section-title">Live Stats</div>
+
+    <div class="metric-card">
+      <div class="label">Numbers Scanned</div>
+      <div class="val accent" id="m-scanned">--</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Candidates (mod 30)</div>
+      <div class="val accent" id="m-candidates">--</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Primes Found</div>
+      <div class="val prime-color" id="m-primes">--</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Composites</div>
+      <div class="val warn" id="m-composites">--</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Twin Prime Pairs</div>
+      <div class="val twin-color" id="m-twins">--</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Largest Twin Pair</div>
+      <div class="val twin-color" id="m-largest-twin">--</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Prime Density</div>
+      <div class="val ok" id="m-density">--</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Twin Density</div>
+      <div class="val twin-color" id="m-twin-density">--</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Range</div>
+      <div class="val accent" id="m-range">--</div>
+    </div>
+
+    <div style="margin-top: 12px;">
+      <div class="section-title">The Pattern</div>
+      <div style="font-size:0.7em; color:var(--dim); line-height:1.4;">
+        <p>Each row covers <b style="color:var(--accent)">30 consecutive integers</b>.</p>
+        <p style="margin-top:6px;">The 6 candidates per row at offsets
+        <b style="color:var(--accent)">+0, +2, +6, +8, +18, +20</b>
+        from the row start are the only positions where primes can appear.</p>
+        <p style="margin-top:6px;">Twin primes can <em>only</em> occur at
+        the <b style="color:var(--twin-glow)">+2 gaps</b> — positions
+        (0,2), (6,8), and (18,20) within each row of 30.</p>
+        <p style="margin-top:6px;">That's 3 possible twin prime slots per 30 numbers.
+        The conjecture: do they keep appearing forever?</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  PRIMALITY TESTING
+// ============================================================
+function isPrime(n) {
+  if (n < 2) return false;
+  if (n < 4) return true;
+  if (n % 2 === 0 || n % 3 === 0) return false;
+  for (let i = 5; i * i <= n; i += 6) {
+    if (n % i === 0 || n % (i + 2) === 0) return false;
+  }
+  return true;
+}
+
+// The cycle: gaps between candidates coprime to 30
+// Starting from 11: 11,13,17,19,29,31,41,43,...
+// Gaps: +2, +4, +2, +10, +2, +10 (sum = 30)
+const GAPS = [2, 4, 2, 10, 2, 10];
+
+// ============================================================
+//  GENERATE MATRIX
+// ============================================================
+function generateMatrix(numRows) {
+  const matrix = document.getElementById('matrix');
+  matrix.innerHTML = '';
+
+  const highlightTwins = document.getElementById('highlight-twins').checked;
+  const showComposites = document.getElementById('show-composites').checked;
+
+  let current = 11;
+  let totalPrimes = 0;
+  let totalComposites = 0;
+  let totalCandidates = 0;
+  let twinPairs = 0;
+  let largestTwin = [0, 0];
+  let maxNum = 11;
+
+  for (let row = 0; row < numRows; row++) {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'matrix-row';
+
+    // Each row has 3 groups, each group has a pair (n, +2, n+2)
+    // Between groups: +4 then +10, or +10
+    // Full cycle per row: n, +2, n+2, +4, n+6, +2, n+8, +10, n+18, +2, n+20, +10 -> next row
+    const rowStart = 11 + row * 30;
+    const offsets = [0, 2, 6, 8, 18, 20];
+    const gapsBetween = [2, 4, 2, 10, 2, 10]; // gaps to next candidate
+
+    for (let g = 0; g < 3; g++) {
+      if (g > 0) {
+        // Gap between groups
+        const gapEl = document.createElement('div');
+        gapEl.className = 'cell interval';
+        const gapVal = g === 1 ? '+4' : '+10';
+        gapEl.textContent = gapVal;
+        rowEl.appendChild(gapEl);
+      }
+
+      const n1 = rowStart + offsets[g * 2];
+      const n2 = rowStart + offsets[g * 2 + 1];
+      const p1 = isPrime(n1);
+      const p2 = isPrime(n2);
+      const isTwinPair = p1 && p2;
+      totalCandidates += 2;
+      if (p1) totalPrimes++; else totalComposites++;
+      if (p2) totalPrimes++; else totalComposites++;
+
+      if (isTwinPair) {
+        twinPairs++;
+        largestTwin = [n1, n2];
+      }
+
+      maxNum = Math.max(maxNum, n2);
+
+      // Cell for n1
+      const c1 = document.createElement('div');
+      c1.className = 'cell';
+      if (isTwinPair && highlightTwins) {
+        c1.classList.add('twin-prime');
+      } else if (p1) {
+        c1.classList.add('prime');
+      } else {
+        c1.classList.add('composite');
+        if (!showComposites) c1.style.opacity = '0.3';
+      }
+      c1.textContent = n1;
+      c1.title = p1 ? `${n1} is PRIME` : `${n1} is composite`;
+      rowEl.appendChild(c1);
+
+      // Interval +2
+      const intEl = document.createElement('div');
+      intEl.className = 'cell interval';
+      intEl.textContent = '+2';
+      rowEl.appendChild(intEl);
+
+      // Cell for n2
+      const c2 = document.createElement('div');
+      c2.className = 'cell';
+      if (isTwinPair && highlightTwins) {
+        c2.classList.add('twin-prime');
+      } else if (p2) {
+        c2.classList.add('prime');
+      } else {
+        c2.classList.add('composite');
+        if (!showComposites) c2.style.opacity = '0.3';
+      }
+      c2.textContent = n2;
+      c2.title = p2 ? `${n2} is PRIME` : `${n2} is composite`;
+      rowEl.appendChild(c2);
+
+      // Gap after group (shown as +10 after last group before next row)
+      if (g < 2) {
+        // gap already handled at start of next iteration
+      }
+    }
+
+    // +10 at end of row (gap to next row)
+    const endGap = document.createElement('div');
+    endGap.className = 'cell interval';
+    endGap.textContent = '+10';
+    rowEl.appendChild(endGap);
+
+    matrix.appendChild(rowEl);
+  }
+
+  // Update stats
+  document.getElementById('m-scanned').textContent = maxNum.toLocaleString();
+  document.getElementById('m-candidates').textContent = totalCandidates.toLocaleString();
+  document.getElementById('m-primes').textContent = totalPrimes.toLocaleString();
+  document.getElementById('m-composites').textContent = totalComposites.toLocaleString();
+  document.getElementById('m-twins').textContent = twinPairs.toLocaleString();
+  document.getElementById('m-largest-twin').textContent =
+    largestTwin[0] > 0 ? `(${largestTwin[0]}, ${largestTwin[1]})` : '--';
+  document.getElementById('m-density').textContent =
+    totalCandidates > 0 ? (100 * totalPrimes / totalCandidates).toFixed(1) + '%' : '--';
+  document.getElementById('m-twin-density').textContent =
+    (numRows * 3) > 0 ? (100 * twinPairs / (numRows * 3)).toFixed(1) + '% of slots' : '--';
+  document.getElementById('m-range').textContent = `11 — ${maxNum.toLocaleString()}`;
+}
+
+// ============================================================
+//  ANIMATED DISCOVERY
+// ============================================================
+let animTimer = null;
+
+function animateDiscovery(numRows) {
+  if (animTimer) { clearInterval(animTimer); animTimer = null; }
+
+  const matrix = document.getElementById('matrix');
+  matrix.innerHTML = '';
+
+  let row = 0;
+  animTimer = setInterval(() => {
+    if (row >= numRows) {
+      clearInterval(animTimer);
+      animTimer = null;
+      return;
+    }
+
+    const highlightTwins = document.getElementById('highlight-twins').checked;
+    const showComposites = document.getElementById('show-composites').checked;
+    const rowEl = document.createElement('div');
+    rowEl.className = 'matrix-row';
+    rowEl.style.animation = 'fadeIn 0.3s ease-in';
+
+    const rowStart = 11 + row * 30;
+    const offsets = [0, 2, 6, 8, 18, 20];
+
+    for (let g = 0; g < 3; g++) {
+      if (g > 0) {
+        const gapEl = document.createElement('div');
+        gapEl.className = 'cell interval';
+        gapEl.textContent = g === 1 ? '+4' : '+10';
+        rowEl.appendChild(gapEl);
+      }
+
+      const n1 = rowStart + offsets[g * 2];
+      const n2 = rowStart + offsets[g * 2 + 1];
+      const p1 = isPrime(n1);
+      const p2 = isPrime(n2);
+      const isTwinPair = p1 && p2;
+
+      const c1 = document.createElement('div');
+      c1.className = 'cell';
+      if (isTwinPair && highlightTwins) c1.classList.add('twin-prime');
+      else if (p1) c1.classList.add('prime');
+      else { c1.classList.add('composite'); if (!showComposites) c1.style.opacity = '0.3'; }
+      c1.textContent = n1;
+      rowEl.appendChild(c1);
+
+      const intEl = document.createElement('div');
+      intEl.className = 'cell interval';
+      intEl.textContent = '+2';
+      rowEl.appendChild(intEl);
+
+      const c2 = document.createElement('div');
+      c2.className = 'cell';
+      if (isTwinPair && highlightTwins) c2.classList.add('twin-prime');
+      else if (p2) c2.classList.add('prime');
+      else { c2.classList.add('composite'); if (!showComposites) c2.style.opacity = '0.3'; }
+      c2.textContent = n2;
+      rowEl.appendChild(c2);
+    }
+
+    const endGap = document.createElement('div');
+    endGap.className = 'cell interval';
+    endGap.textContent = '+10';
+    rowEl.appendChild(endGap);
+
+    matrix.appendChild(rowEl);
+    rowEl.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    row++;
+
+    // Update stats incrementally
+    updateStatsForRows(row);
+  }, 150);
+}
+
+function updateStatsForRows(numRows) {
+  let totalPrimes = 0, totalComposites = 0, twinPairs = 0, largestTwin = [0, 0];
+  const totalCandidates = numRows * 6;
+  const offsets = [0, 2, 6, 8, 18, 20];
+
+  for (let r = 0; r < numRows; r++) {
+    const rowStart = 11 + r * 30;
+    for (let g = 0; g < 3; g++) {
+      const n1 = rowStart + offsets[g * 2];
+      const n2 = rowStart + offsets[g * 2 + 1];
+      const p1 = isPrime(n1);
+      const p2 = isPrime(n2);
+      if (p1) totalPrimes++; else totalComposites++;
+      if (p2) totalPrimes++; else totalComposites++;
+      if (p1 && p2) { twinPairs++; largestTwin = [n1, n2]; }
+    }
+  }
+
+  const maxNum = 11 + (numRows - 1) * 30 + 20;
+  document.getElementById('m-scanned').textContent = maxNum.toLocaleString();
+  document.getElementById('m-candidates').textContent = totalCandidates.toLocaleString();
+  document.getElementById('m-primes').textContent = totalPrimes.toLocaleString();
+  document.getElementById('m-composites').textContent = totalComposites.toLocaleString();
+  document.getElementById('m-twins').textContent = twinPairs.toLocaleString();
+  document.getElementById('m-largest-twin').textContent =
+    largestTwin[0] > 0 ? `(${largestTwin[0]}, ${largestTwin[1]})` : '--';
+  document.getElementById('m-density').textContent =
+    totalCandidates > 0 ? (100 * totalPrimes / totalCandidates).toFixed(1) + '%' : '--';
+  document.getElementById('m-twin-density').textContent =
+    (numRows * 3) > 0 ? (100 * twinPairs / (numRows * 3)).toFixed(1) + '% of slots' : '--';
+  document.getElementById('m-range').textContent = `11 — ${maxNum.toLocaleString()}`;
+}
+
+// ============================================================
+//  EVENT WIRING
+// ============================================================
+document.getElementById('rows').addEventListener('input', e => {
+  document.getElementById('rows-val').textContent = e.target.value;
+});
+
+document.getElementById('btn-generate').addEventListener('click', () => {
+  if (animTimer) { clearInterval(animTimer); animTimer = null; }
+  const numRows = parseInt(document.getElementById('rows').value);
+  const animate = document.getElementById('animate-mode').checked;
+  if (animate) {
+    animateDiscovery(numRows);
+  } else {
+    generateMatrix(numRows);
+  }
+});
+
+document.getElementById('highlight-twins').addEventListener('change', () => {
+  if (!animTimer) {
+    generateMatrix(parseInt(document.getElementById('rows').value));
+  }
+});
+
+document.getElementById('show-composites').addEventListener('change', () => {
+  if (!animTimer) {
+    generateMatrix(parseInt(document.getElementById('rows').value));
+  }
+});
+
+// ============================================================
+//  INIT
+// ============================================================
+generateMatrix(20);
+</script>
+
+<style>
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>
+
+</body>
+</html>

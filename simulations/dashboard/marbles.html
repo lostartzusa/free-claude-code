@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hypotenuse / Drop / Dispersion</title>
+<style>
+  :root {
+    --bg: #0a0a1a;
+    --panel: #12122a;
+    --border: #2a2a4a;
+    --text: #e0e0f0;
+    --dim: #8888aa;
+    --accent: #00ccff;
+    --warn: #ff6644;
+    --ok: #44ff88;
+    --impact: #ffcc00;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Courier New', monospace;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+  }
+  .header {
+    text-align: center;
+    padding: 10px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, #0f0f2a 0%, var(--bg) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+  }
+  .header h1 { font-size: 1.1em; color: var(--accent); letter-spacing: 2px; }
+  .header .subtitle { font-size: 0.8em; color: var(--dim); }
+  .header .nav-link {
+    font-size: 0.8em;
+    color: var(--accent);
+    text-decoration: none;
+    border: 1px solid var(--accent);
+    padding: 4px 12px;
+    border-radius: 4px;
+  }
+  .header .nav-link:hover { background: var(--accent); color: var(--bg); }
+  .layout {
+    display: grid;
+    grid-template-columns: 240px 1fr 260px;
+    height: calc(100vh - 50px);
+  }
+  .sidebar {
+    padding: 12px;
+    border-right: 1px solid var(--border);
+    background: var(--panel);
+    overflow-y: auto;
+  }
+  .sidebar-right {
+    padding: 12px;
+    border-left: 1px solid var(--border);
+    background: var(--panel);
+    overflow-y: auto;
+  }
+  .main { position: relative; overflow: hidden; }
+  #canvas3d { width: 100%; height: 100%; display: block; }
+  .section-title {
+    font-size: 0.7em;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .control-group { margin-bottom: 10px; }
+  .control-group label {
+    display: block;
+    font-size: 0.72em;
+    color: var(--dim);
+    margin-bottom: 2px;
+  }
+  .control-group .value {
+    float: right;
+    color: var(--accent);
+    font-weight: bold;
+  }
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+    background: transparent;
+    cursor: pointer;
+  }
+  button {
+    width: 100%;
+    padding: 6px 8px;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 0.8em;
+    cursor: pointer;
+    margin-bottom: 4px;
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary {
+    background: var(--accent);
+    color: var(--bg);
+    font-weight: bold;
+    border: none;
+  }
+  button.primary:hover { opacity: 0.85; }
+  .metric-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+  }
+  .metric-card .label {
+    font-size: 0.65em;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .metric-card .val {
+    font-size: 1.1em;
+    font-weight: bold;
+    margin-top: 1px;
+  }
+  .metric-card .val.accent { color: var(--accent); }
+  .metric-card .val.warn { color: var(--warn); }
+  .metric-card .val.ok { color: var(--ok); }
+  .metric-card .val.impact { color: var(--impact); }
+
+  canvas.chart {
+    width: 100%;
+    height: 100px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 6px;
+    display: block;
+  }
+  .chart-title {
+    font-size: 0.65em;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 3px;
+  }
+  .phase-indicator {
+    text-align: center;
+    padding: 6px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: bold;
+    margin-bottom: 8px;
+  }
+  .phase-setup { background: #1a2a1a; color: var(--ok); border: 1px solid var(--ok); }
+  .phase-falling { background: #2a2a1a; color: var(--impact); border: 1px solid var(--impact); }
+  .phase-impact { background: #3a1a1a; color: var(--warn); border: 1px solid var(--warn); }
+  .phase-dispersion { background: #1a1a3a; color: var(--accent); border: 1px solid var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>HYPOTENUSE / DROP / DISPERSION</h1>
+  <div class="subtitle">100 marbles &bull; Real-time WebGL Physics</div>
+  <a class="nav-link" href="index.html">2D Sim</a>
+  <a class="nav-link" href="index3d.html">3D Sim</a>
+  <a class="nav-link" href="primes.html">Twin Primes</a>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="section-title">Simulation Parameters</div>
+
+    <div class="control-group">
+      <label>Marbles <span class="value" id="marbles-val">100</span></label>
+      <input type="range" id="marbles" min="10" max="200" step="10" value="100">
+    </div>
+    <div class="control-group">
+      <label>Gravity (m/s&sup2;) <span class="value" id="gravity-val">9.81</span></label>
+      <input type="range" id="gravity" min="1" max="30" step="0.5" value="9.81">
+    </div>
+    <div class="control-group">
+      <label>Restitution (e) <span class="value" id="restitution-val">0.75</span></label>
+      <input type="range" id="restitution" min="0" max="1" step="0.05" value="0.75">
+    </div>
+    <div class="control-group">
+      <label>Friction <span class="value" id="friction-val">0.25</span></label>
+      <input type="range" id="friction" min="0" max="1" step="0.05" value="0.25">
+    </div>
+    <div class="control-group">
+      <label>Slope Height <span class="value" id="height-val">20</span></label>
+      <input type="range" id="slope-height" min="5" max="40" step="1" value="20">
+    </div>
+    <div class="control-group">
+      <label>Slope Base <span class="value" id="base-val">30</span></label>
+      <input type="range" id="slope-base" min="10" max="60" step="1" value="30">
+    </div>
+    <div class="control-group">
+      <label>Size Range <span class="value" id="size-val">0.4 — 1.2</span></label>
+    </div>
+    <div class="control-group">
+      <label>Time Step <span class="value" id="dt-val">0.016</span></label>
+    </div>
+
+    <div style="display:flex; gap:4px; margin-bottom:4px;">
+      <button class="primary" id="btn-play" style="flex:1;">Play</button>
+      <button id="btn-step" style="flex:1;">Step</button>
+    </div>
+    <button id="btn-reset">Reset</button>
+
+    <div style="margin-top:12px;">
+      <div class="section-title">The Mechanism</div>
+      <div style="font-size:0.68em; color:var(--dim); line-height:1.4;">
+        <p><b style="color:var(--ok);">1.</b> Marbles arranged along the hypotenuse (slope). At rest.</p>
+        <p style="margin-top:4px;"><b style="color:var(--impact);">2.</b> Gravity pulls them down. They accelerate toward the ground.</p>
+        <p style="margin-top:4px;"><b style="color:var(--warn);">3.</b> Ground contact stops downward motion. Forces redirect sideways through collisions.</p>
+        <p style="margin-top:4px;"><b style="color:var(--accent);">4.</b> Momentum redistributes outward — the <b>dispersion explosion</b>.</p>
+      </div>
+    </div>
+
+    <div style="margin-top:12px;">
+      <div class="section-title">Key Equations</div>
+      <div style="font-size:0.68em; color:var(--dim); line-height:1.5;">
+        <p><b style="color:var(--accent);">Collision Impulse:</b></p>
+        <p style="color:var(--text);">j = -(1+e)(v_rel &middot; n) / (1/m₁ + 1/m₂)</p>
+        <p style="margin-top:6px;"><b style="color:var(--accent);">Velocity Update:</b></p>
+        <p style="color:var(--text);">v₁&prime; = v₁ + (j/m₁)n</p>
+        <p style="color:var(--text);">v₂&prime; = v₂ - (j/m₂)n</p>
+        <p style="margin-top:6px;"><b style="color:var(--accent);">Dispersion:</b></p>
+        <p style="color:var(--text);">D(t) = (1/N) &Sigma; ||x_i - x_cm||</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <canvas id="canvas3d"></canvas>
+  </div>
+
+  <div class="sidebar-right">
+    <div id="phase-indicator" class="phase-indicator phase-setup">1. INITIAL STATE</div>
+
+    <div class="section-title">Live Metrics</div>
+
+    <div class="metric-card">
+      <div class="label">Time</div>
+      <div class="val accent" id="m-time">0.000 s</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Phase</div>
+      <div class="val ok" id="m-phase">Setup</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Dispersion D(t)</div>
+      <div class="val accent" id="m-dispersion">0.00</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Dispersion Rate R(t)</div>
+      <div class="val impact" id="m-rate">0.00</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Impact Moment</div>
+      <div class="val warn" id="m-impact">--</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Peak Rate</div>
+      <div class="val warn" id="m-peak-rate">0.00</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Active Collisions</div>
+      <div class="val accent" id="m-collisions">0</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Avg Speed</div>
+      <div class="val accent" id="m-avg-speed">0.00</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Total KE</div>
+      <div class="val accent" id="m-energy">0.00</div>
+    </div>
+
+    <div style="margin-top:8px;">
+      <div class="chart-title">Dispersion D(t) Over Time</div>
+      <canvas class="chart" id="chart-dispersion" width="240" height="100"></canvas>
+    </div>
+    <div>
+      <div class="chart-title">Dispersion Rate R(t)</div>
+      <canvas class="chart" id="chart-rate" width="240" height="100"></canvas>
+    </div>
+
+    <div style="margin-top:8px;">
+      <div class="section-title">Key Insight</div>
+      <div style="font-size:0.68em; color:var(--dim); line-height:1.4;">
+        <p>When marbles hit the ground, vertical motion is constrained.
+        Momentum redistributes laterally through collisions, causing
+        rapid outward dispersion.</p>
+        <p style="margin-top:4px; color:var(--impact); font-weight:bold;">
+        This is the transition from ordered motion to chaotic redistribution.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ============================================================
+//  CONSTANTS & STATE
+// ============================================================
+const MARBLE_COLORS = [
+  0xff4444, 0x44ff44, 0x4444ff, 0xffff44, 0xff44ff, 0x44ffff,
+  0xff8800, 0x8800ff, 0x0088ff, 0xff0088, 0x88ff00, 0x00ff88,
+  0xcc4400, 0x4400cc, 0x0044cc, 0xcc0044, 0x44cc00, 0x00cc44,
+  0xffaa44, 0xaa44ff, 0x44aaff, 0xff44aa, 0xaaff44, 0x44ffaa,
+  0xdd6600, 0x6600dd, 0x0066dd, 0xdd0066, 0x66dd00, 0x00dd66,
+];
+
+let state = {
+  numMarbles: 100,
+  gravity: 9.81,
+  restitution: 0.75,
+  friction: 0.25,
+  slopeHeight: 20,
+  slopeBase: 30,
+  sizeMin: 0.4,
+  sizeMax: 1.2,
+  dt: 0.016,
+  playing: false,
+  time: 0,
+  impactTime: null,
+  peakRate: 0,
+  dispersionHistory: [],
+  rateHistory: [],
+  marbles: [],
+  collisionsThisFrame: 0,
+};
+
+// ============================================================
+//  THREE.JS SETUP
+// ============================================================
+const canvas = document.getElementById('canvas3d');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a0a1a);
+scene.fog = new THREE.FogExp2(0x0a0a1a, 0.008);
+
+const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 500);
+camera.position.set(25, 20, 40);
+
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.target.set(0, 5, 0);
+
+// Lights
+const ambientLight = new THREE.AmbientLight(0x334466, 0.6);
+scene.add(ambientLight);
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+dirLight.position.set(20, 40, 30);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.set(2048, 2048);
+dirLight.shadow.camera.left = -50;
+dirLight.shadow.camera.right = 50;
+dirLight.shadow.camera.top = 50;
+dirLight.shadow.camera.bottom = -50;
+scene.add(dirLight);
+const fillLight = new THREE.DirectionalLight(0x4466aa, 0.3);
+fillLight.position.set(-20, 10, -10);
+scene.add(fillLight);
+
+// Ground plane
+const groundGeo = new THREE.PlaneGeometry(200, 200);
+const groundMat = new THREE.MeshStandardMaterial({
+  color: 0x1a1a2e,
+  roughness: 0.8,
+  metalness: 0.2,
+});
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// Grid helper
+const grid = new THREE.GridHelper(200, 40, 0x2a2a4a, 0x1a1a3a);
+grid.position.y = 0.01;
+scene.add(grid);
+
+// Slope (hypotenuse) visualization
+let slopeMesh = null;
+function buildSlope() {
+  if (slopeMesh) scene.remove(slopeMesh);
+  const h = state.slopeHeight;
+  const b = state.slopeBase;
+  const shape = new THREE.Shape();
+  shape.moveTo(0, 0);
+  shape.lineTo(b, 0);
+  shape.lineTo(0, h);
+  shape.closePath();
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: 4, bevelEnabled: false });
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0x2a2a4a,
+    transparent: true,
+    opacity: 0.3,
+    roughness: 0.5,
+  });
+  slopeMesh = new THREE.Mesh(geo, mat);
+  slopeMesh.position.set(-b / 2, 0, -2);
+  slopeMesh.receiveShadow = true;
+  scene.add(slopeMesh);
+}
+
+// Hypotenuse line
+let hypLine = null;
+function buildHypLine() {
+  if (hypLine) scene.remove(hypLine);
+  const h = state.slopeHeight;
+  const b = state.slopeBase;
+  const pts = [
+    new THREE.Vector3(-b / 2, h, 0),
+    new THREE.Vector3(b / 2, 0, 0),
+  ];
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  const mat = new THREE.LineDashedMaterial({
+    color: 0x00ccff,
+    dashSize: 0.5,
+    gapSize: 0.3,
+  });
+  hypLine = new THREE.Line(geo, mat);
+  hypLine.computeLineDistances();
+  scene.add(hypLine);
+}
+
+// Impact marker
+const impactGeo = new THREE.SphereGeometry(0.3, 16, 16);
+const impactMat = new THREE.MeshBasicMaterial({ color: 0xffcc00 });
+const impactMarker = new THREE.Mesh(impactGeo, impactMat);
+impactMarker.position.set(0, 0.3, 0);
+impactMarker.visible = false;
+scene.add(impactMarker);
+
+// ============================================================
+//  MARBLE CREATION
+// ============================================================
+let marbleMeshes = [];
+
+function randomColor() {
+  return MARBLE_COLORS[Math.floor(Math.random() * MARBLE_COLORS.length)];
+}
+
+function createMarbles() {
+  marbleMeshes.forEach(m => scene.remove(m));
+  marbleMeshes = [];
+  state.marbles = [];
+
+  const n = state.numMarbles;
+  const h = state.slopeHeight;
+  const b = state.slopeBase;
+
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1);
+    const radius = state.sizeMin + Math.random() * (state.sizeMax - state.sizeMin);
+    const mass = (4 / 3) * Math.PI * radius * radius * radius;
+
+    // Position along hypotenuse with slight random spread
+    const x = -b / 2 + t * b + (Math.random() - 0.5) * 1.5;
+    const slopeY = h * (1 - t);
+    const y = slopeY + radius + (Math.random() - 0.5) * 0.5;
+    const z = (Math.random() - 0.5) * 3;
+
+    const geo = new THREE.SphereGeometry(radius, 16, 16);
+    const mat = new THREE.MeshStandardMaterial({
+      color: randomColor(),
+      roughness: 0.3,
+      metalness: 0.7,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.castShadow = true;
+    mesh.position.set(x, y, z);
+    scene.add(mesh);
+    marbleMeshes.push(mesh);
+
+    state.marbles.push({
+      pos: new THREE.Vector3(x, y, z),
+      vel: new THREE.Vector3(0, 0, 0),
+      radius,
+      mass,
+      mesh,
+    });
+  }
+}
+
+// ============================================================
+//  PHYSICS ENGINE
+// ============================================================
+function physicsStep() {
+  const dt = state.dt;
+  const g = state.gravity;
+  const e = state.restitution;
+  const mu = state.friction;
+  const marbles = state.marbles;
+  let collisions = 0;
+
+  // Apply gravity and integrate
+  for (const m of marbles) {
+    m.vel.y -= g * dt;
+    m.pos.x += m.vel.x * dt;
+    m.pos.y += m.vel.y * dt;
+    m.pos.z += m.vel.z * dt;
+  }
+
+  // Ground collision
+  for (const m of marbles) {
+    if (m.pos.y < m.radius) {
+      m.pos.y = m.radius;
+      if (m.vel.y < 0) {
+        m.vel.y = -m.vel.y * e;
+        // Apply friction to horizontal velocity
+        m.vel.x *= (1 - mu * dt);
+        m.vel.z *= (1 - mu * dt);
+        collisions++;
+      }
+    }
+  }
+
+  // Slope collision (while slope is visible)
+  const h = state.slopeHeight;
+  const b = state.slopeBase;
+  const slopeNx = h / Math.sqrt(h * h + b * b);
+  const slopeNy = b / Math.sqrt(h * h + b * b);
+  for (const m of marbles) {
+    const localX = m.pos.x + b / 2;
+    if (localX >= 0 && localX <= b) {
+      const slopeYAt = h * (1 - localX / b);
+      // Distance from slope line (in 2D cross-section)
+      const dist = (m.pos.y - slopeYAt) * slopeNy + localX / b * 0 ;
+      const perpDist = slopeNx * localX + slopeNy * (m.pos.y) - slopeNy * h;
+      // Simplified: check if marble center is below slope surface
+      const slopeYAtX = h - (h / b) * localX;
+      if (m.pos.y < slopeYAtX + m.radius && m.pos.y > 0) {
+        // Push marble above slope
+        const nx = -h / Math.sqrt(h * h + b * b);
+        const ny = b / Math.sqrt(h * h + b * b);
+        m.pos.y = slopeYAtX + m.radius;
+        // Reflect velocity off slope normal
+        const vDotN = m.vel.x * nx + m.vel.y * ny;
+        if (vDotN < 0) {
+          m.vel.x -= (1 + e) * vDotN * nx;
+          m.vel.y -= (1 + e) * vDotN * ny;
+          m.vel.x *= (1 - mu * dt);
+          m.vel.z *= (1 - mu * dt);
+        }
+      }
+    }
+  }
+
+  // Marble-marble collisions
+  for (let i = 0; i < marbles.length; i++) {
+    for (let j = i + 1; j < marbles.length; j++) {
+      const a = marbles[i];
+      const b2 = marbles[j];
+      const dx = b2.pos.x - a.pos.x;
+      const dy = b2.pos.y - a.pos.y;
+      const dz = b2.pos.z - a.pos.z;
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      const minDist = a.radius + b2.radius;
+
+      if (dist < minDist && dist > 0.001) {
+        // Normal vector
+        const nx = dx / dist;
+        const ny = dy / dist;
+        const nz = dz / dist;
+
+        // Relative velocity
+        const vrelX = a.vel.x - b2.vel.x;
+        const vrelY = a.vel.y - b2.vel.y;
+        const vrelZ = a.vel.z - b2.vel.z;
+        const vrelDotN = vrelX * nx + vrelY * ny + vrelZ * nz;
+
+        if (vrelDotN > 0) {
+          // Impulse magnitude
+          const imp = -(1 + e) * vrelDotN / (1 / a.mass + 1 / b2.mass);
+
+          a.vel.x += (imp / a.mass) * nx;
+          a.vel.y += (imp / a.mass) * ny;
+          a.vel.z += (imp / a.mass) * nz;
+          b2.vel.x -= (imp / b2.mass) * nx;
+          b2.vel.y -= (imp / b2.mass) * ny;
+          b2.vel.z -= (imp / b2.mass) * nz;
+          collisions++;
+        }
+
+        // Separate overlapping marbles
+        const overlap = minDist - dist;
+        const totalMass = a.mass + b2.mass;
+        a.pos.x -= (overlap * b2.mass / totalMass) * nx;
+        a.pos.y -= (overlap * b2.mass / totalMass) * ny;
+        a.pos.z -= (overlap * b2.mass / totalMass) * nz;
+        b2.pos.x += (overlap * a.mass / totalMass) * nx;
+        b2.pos.y += (overlap * a.mass / totalMass) * ny;
+        b2.pos.z += (overlap * a.mass / totalMass) * nz;
+      }
+    }
+  }
+
+  state.collisionsThisFrame = collisions;
+  state.time += dt;
+
+  // Update mesh positions
+  for (const m of marbles) {
+    m.mesh.position.copy(m.pos);
+  }
+}
+
+// ============================================================
+//  DISPERSION COMPUTATION
+// ============================================================
+function computeDispersion() {
+  const marbles = state.marbles;
+  if (marbles.length === 0) return 0;
+
+  // Center of mass
+  let cx = 0, cy = 0, cz = 0;
+  for (const m of marbles) {
+    cx += m.pos.x;
+    cy += m.pos.y;
+    cz += m.pos.z;
+  }
+  cx /= marbles.length;
+  cy /= marbles.length;
+  cz /= marbles.length;
+
+  // Average distance from center of mass
+  let totalDist = 0;
+  for (const m of marbles) {
+    const dx = m.pos.x - cx;
+    const dy = m.pos.y - cy;
+    const dz = m.pos.z - cz;
+    totalDist += Math.sqrt(dx * dx + dy * dy + dz * dz);
+  }
+  return totalDist / marbles.length;
+}
+
+function computeAvgSpeed() {
+  const marbles = state.marbles;
+  if (marbles.length === 0) return 0;
+  let total = 0;
+  for (const m of marbles) {
+    total += m.vel.length();
+  }
+  return total / marbles.length;
+}
+
+function computeKineticEnergy() {
+  let total = 0;
+  for (const m of state.marbles) {
+    total += 0.5 * m.mass * m.vel.lengthSq();
+  }
+  return total;
+}
+
+// ============================================================
+//  CHARTS
+// ============================================================
+function drawChart(canvasId, data, maxVal, color, impactIdx) {
+  const cvs = document.getElementById(canvasId);
+  const ctx = cvs.getContext('2d');
+  const w = cvs.width;
+  const h = cvs.height;
+  ctx.clearRect(0, 0, w, h);
+
+  if (data.length < 2) return;
+
+  // Background
+  ctx.fillStyle = '#0a0a1a';
+  ctx.fillRect(0, 0, w, h);
+
+  // Grid lines
+  ctx.strokeStyle = '#1a1a3a';
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i < 5; i++) {
+    const y = (i / 4) * h;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
+    ctx.stroke();
+  }
+
+  // Impact line
+  if (impactIdx !== null && impactIdx >= 0) {
+    const ix = (impactIdx / (data.length - 1)) * w;
+    ctx.strokeStyle = '#ff6644';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(ix, 0);
+    ctx.lineTo(ix, h);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = '#ff6644';
+    ctx.font = '9px Courier New';
+    ctx.fillText('IMPACT', ix + 3, 10);
+  }
+
+  // Data line
+  const effectiveMax = maxVal > 0 ? maxVal : 1;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (let i = 0; i < data.length; i++) {
+    const x = (i / (data.length - 1)) * w;
+    const y = h - (data[i] / effectiveMax) * h * 0.9;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+}
+
+// ============================================================
+//  PHASE DETECTION
+// ============================================================
+function detectPhase() {
+  const marbles = state.marbles;
+  if (marbles.length === 0) return 'setup';
+
+  const avgSpeed = computeAvgSpeed();
+  const dispRate = state.rateHistory.length > 0
+    ? state.rateHistory[state.rateHistory.length - 1]
+    : 0;
+
+  if (state.time < 0.01) return 'setup';
+
+  let anyOnGround = false;
+  for (const m of marbles) {
+    if (m.pos.y <= m.radius + 0.1) { anyOnGround = true; break; }
+  }
+
+  if (!anyOnGround) return 'falling';
+  if (dispRate > 5) return 'impact';
+  if (state.impactTime !== null) return 'dispersion';
+  return 'falling';
+}
+
+function updatePhaseUI(phase) {
+  const el = document.getElementById('phase-indicator');
+  const mPhase = document.getElementById('m-phase');
+  el.className = 'phase-indicator';
+  switch (phase) {
+    case 'setup':
+      el.classList.add('phase-setup');
+      el.textContent = '1. INITIAL STATE';
+      mPhase.textContent = 'Setup';
+      mPhase.className = 'val ok';
+      break;
+    case 'falling':
+      el.classList.add('phase-falling');
+      el.textContent = '2. DROPPING / FALLING';
+      mPhase.textContent = 'Free Fall';
+      mPhase.className = 'val impact';
+      break;
+    case 'impact':
+      el.classList.add('phase-impact');
+      el.textContent = '3. IMPACT & COLLISION CASCADE';
+      mPhase.textContent = 'Impact!';
+      mPhase.className = 'val warn';
+      if (state.impactTime === null) {
+        state.impactTime = state.time;
+        impactMarker.visible = true;
+      }
+      break;
+    case 'dispersion':
+      el.classList.add('phase-dispersion');
+      el.textContent = '4. DISPERSION';
+      mPhase.textContent = 'Dispersing';
+      mPhase.className = 'val accent';
+      break;
+  }
+}
+
+// ============================================================
+//  SIMULATION LOOP
+// ============================================================
+function doStep() {
+  physicsStep();
+
+  const disp = computeDispersion();
+  state.dispersionHistory.push(disp);
+
+  // Compute rate (finite difference)
+  let rate = 0;
+  const hist = state.dispersionHistory;
+  if (hist.length >= 2) {
+    rate = (hist[hist.length - 1] - hist[hist.length - 2]) / state.dt;
+    if (rate < 0) rate = 0;
+  }
+  state.rateHistory.push(rate);
+  if (rate > state.peakRate) state.peakRate = rate;
+
+  // Detect impact moment (first big spike in rate)
+  const impactIdx = state.impactTime !== null
+    ? Math.round(state.impactTime / state.dt)
+    : null;
+
+  // Update UI
+  document.getElementById('m-time').textContent = state.time.toFixed(3) + ' s';
+  document.getElementById('m-dispersion').textContent = disp.toFixed(2);
+  document.getElementById('m-rate').textContent = rate.toFixed(2);
+  document.getElementById('m-impact').textContent =
+    state.impactTime !== null ? state.impactTime.toFixed(3) + ' s' : '--';
+  document.getElementById('m-peak-rate').textContent = state.peakRate.toFixed(2);
+  document.getElementById('m-collisions').textContent = state.collisionsThisFrame;
+  document.getElementById('m-avg-speed').textContent = computeAvgSpeed().toFixed(2);
+  document.getElementById('m-energy').textContent = computeKineticEnergy().toFixed(2);
+
+  const phase = detectPhase();
+  updatePhaseUI(phase);
+
+  // Charts
+  const maxDisp = Math.max(...state.dispersionHistory, 1);
+  const maxRate = Math.max(...state.rateHistory, 1);
+  drawChart('chart-dispersion', state.dispersionHistory, maxDisp, '#ffcc00', impactIdx);
+  drawChart('chart-rate', state.rateHistory, maxRate, '#00ccff', impactIdx);
+}
+
+let animFrame = null;
+let lastTime = 0;
+let accumulator = 0;
+
+function animate(timestamp) {
+  if (!state.playing) return;
+
+  const elapsed = Math.min((timestamp - lastTime) / 1000, 0.05);
+  lastTime = timestamp;
+  accumulator += elapsed;
+
+  while (accumulator >= state.dt) {
+    doStep();
+    accumulator -= state.dt;
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+  animFrame = requestAnimationFrame(animate);
+}
+
+// ============================================================
+//  RESET
+// ============================================================
+function resetSim() {
+  state.playing = false;
+  state.time = 0;
+  state.impactTime = null;
+  state.peakRate = 0;
+  state.dispersionHistory = [];
+  state.rateHistory = [];
+  state.collisionsThisFrame = 0;
+  impactMarker.visible = false;
+
+  document.getElementById('btn-play').textContent = 'Play';
+  document.getElementById('m-time').textContent = '0.000 s';
+  document.getElementById('m-dispersion').textContent = '0.00';
+  document.getElementById('m-rate').textContent = '0.00';
+  document.getElementById('m-impact').textContent = '--';
+  document.getElementById('m-peak-rate').textContent = '0.00';
+  document.getElementById('m-collisions').textContent = '0';
+  document.getElementById('m-avg-speed').textContent = '0.00';
+  document.getElementById('m-energy').textContent = '0.00';
+  updatePhaseUI('setup');
+
+  // Clear charts
+  for (const id of ['chart-dispersion', 'chart-rate']) {
+    const cvs = document.getElementById(id);
+    cvs.getContext('2d').clearRect(0, 0, cvs.width, cvs.height);
+  }
+
+  buildSlope();
+  buildHypLine();
+  createMarbles();
+  renderer.render(scene, camera);
+}
+
+// ============================================================
+//  EVENT WIRING
+// ============================================================
+document.getElementById('btn-play').addEventListener('click', () => {
+  state.playing = !state.playing;
+  document.getElementById('btn-play').textContent = state.playing ? 'Pause' : 'Play';
+  if (state.playing) {
+    lastTime = performance.now();
+    accumulator = 0;
+    animFrame = requestAnimationFrame(animate);
+  }
+});
+
+document.getElementById('btn-step').addEventListener('click', () => {
+  if (!state.playing) {
+    doStep();
+    controls.update();
+    renderer.render(scene, camera);
+  }
+});
+
+document.getElementById('btn-reset').addEventListener('click', resetSim);
+
+// Sliders
+document.getElementById('marbles').addEventListener('input', e => {
+  document.getElementById('marbles-val').textContent = e.target.value;
+  state.numMarbles = parseInt(e.target.value);
+});
+document.getElementById('gravity').addEventListener('input', e => {
+  document.getElementById('gravity-val').textContent = parseFloat(e.target.value).toFixed(2);
+  state.gravity = parseFloat(e.target.value);
+});
+document.getElementById('restitution').addEventListener('input', e => {
+  document.getElementById('restitution-val').textContent = parseFloat(e.target.value).toFixed(2);
+  state.restitution = parseFloat(e.target.value);
+});
+document.getElementById('friction').addEventListener('input', e => {
+  document.getElementById('friction-val').textContent = parseFloat(e.target.value).toFixed(2);
+  state.friction = parseFloat(e.target.value);
+});
+document.getElementById('slope-height').addEventListener('input', e => {
+  document.getElementById('height-val').textContent = e.target.value;
+  state.slopeHeight = parseInt(e.target.value);
+});
+document.getElementById('slope-base').addEventListener('input', e => {
+  document.getElementById('base-val').textContent = e.target.value;
+  state.slopeBase = parseInt(e.target.value);
+});
+
+// Resize
+function onResize() {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  renderer.setSize(rect.width, rect.height);
+  camera.aspect = rect.width / rect.height;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', onResize);
+
+// ============================================================
+//  INIT
+// ============================================================
+onResize();
+buildSlope();
+buildHypLine();
+createMarbles();
+controls.update();
+renderer.render(scene, camera);
+
+// Keep rendering for orbit controls even when paused
+function renderLoop() {
+  if (!state.playing) {
+    controls.update();
+    renderer.render(scene, camera);
+  }
+  requestAnimationFrame(renderLoop);
+}
+renderLoop();
+</script>
+</body>
+</html>
